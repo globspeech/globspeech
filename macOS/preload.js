@@ -1,0 +1,52 @@
+const { contextBridge, ipcRenderer } = require('electron');
+
+contextBridge.exposeInMainWorld('electronAPI', {
+
+    loadFoundation: () => ipcRenderer.invoke('load-foundation'),
+    loadConfig: () => ipcRenderer.invoke('load-config'),
+    saveConfig: (newConfig) => ipcRenderer.invoke('save-config', newConfig),
+    loadCsv: (filename) => ipcRenderer.invoke('load-csv', filename),
+    loadSelfNow: () => ipcRenderer.invoke('load-self-now'),
+    loadSelfDictionaries: () => ipcRenderer.invoke('load-self-dictionaries'),
+
+    whichNowId: () => ipcRenderer.invoke('which-now-id'),
+    inputABCDo: (action, wordId) => ipcRenderer.invoke('input-abc-do', action, wordId),
+    getCount: () => ipcRenderer.invoke('get-count'),
+    showBackButton: () => ipcRenderer.invoke('show-back-button'),
+    executeBackButton: () => ipcRenderer.invoke('execute-back-button'),
+
+    selectFile: (options) => ipcRenderer.invoke('select-file', options),
+    processWordsLemmatization: (text) => ipcRenderer.invoke('process-words-lemmatization', text),
+
+    insertFirstBatch: (wordIds) => ipcRenderer.invoke('insert-first-batch', wordIds),
+    delWordIdSelfNow: (wordId) => ipcRenderer.invoke('del-word-id-self-now', wordId),
+    addDictionary: (bookName, bookContent) => ipcRenderer.invoke('add-dictionary', bookName, bookContent),
+    modifyDictionary: (bookId, bookName, bookContent) => ipcRenderer.invoke('modify-dictionary', bookId, bookName, bookContent),
+    removeDictionary: (bookId) => ipcRenderer.invoke('remove-dictionary', bookId),
+    removeContentInnerIdFromBook: (bookId, contentInnerId) => ipcRenderer.invoke('remove-content-inner-id-from-book', bookId, contentInnerId),
+    whichNowBox: () => ipcRenderer.invoke('which-now-box'),
+
+    view_number_of_tomorrow: () => ipcRenderer.invoke('view-number-of-tomorrow'),
+    all_sequence_lemmatization: (text) => ipcRenderer.invoke('all-sequence-lemmatization', text),
+    novel_sequence_lemmatization: (text) => ipcRenderer.invoke('novel-sequence-lemmatization', text),
+    all_frequency_lemmatization: (text) => ipcRenderer.invoke('all-frequency-lemmatization', text),
+    novel_frequency_lemmatization: (text) => ipcRenderer.invoke('novel-frequency-lemmatization', text),
+    reset_app: () => ipcRenderer.invoke('reset-app'),
+    rebuild_reserve_folder: () => ipcRenderer.invoke('rebuild-reserve-folder'),
+    import_backup_file: () => ipcRenderer.invoke('import-backup-file'),
+    verify_and_uncompress: () => ipcRenderer.invoke('verify-and-uncompress'),
+    reserve_convey_config_json: () => ipcRenderer.invoke('reserve-convey-config-json'),
+    reserve_convey_self_dictionary_db: () => ipcRenderer.invoke('reserve-convey-self-dictionary-db'),
+    reserve_convey_self_now_db: () => ipcRenderer.invoke('reserve-convey-self-now-db'),
+    reserve_convey_twenty_thousand_db: () => ipcRenderer.invoke('reserve-convey-twenty-thousand-db'),
+    convey_config_json: () => ipcRenderer.invoke('convey-config-json'),
+    convey_self_dictionary_db: () => ipcRenderer.invoke('convey-self-dictionary-db'),
+    convey_self_now_db: () => ipcRenderer.invoke('convey-self-now-db'),
+    convey_twenty_thousand_db: () => ipcRenderer.invoke('convey-twenty-thousand-db'),
+    four_compress: () => ipcRenderer.invoke('four-compress'),
+    export_backup_file: () => ipcRenderer.invoke('export-backup-file'),
+    check_3_day: () => ipcRenderer.invoke('check-3-day'),
+    run_four_time_session: (h1, h2) => ipcRenderer.invoke('run-four-time-session', h1, h2),
+    what_two_offset_time: () => ipcRenderer.invoke('what-two-offset-time'),
+    what_three_offset_time: () => ipcRenderer.invoke('what-three-offset-time'),
+});

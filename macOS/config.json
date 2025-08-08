@@ -1,0 +1,22 @@
+{
+  "two_offset_time": "+00:00",
+  "three_offset_time": "+00:00",
+  "today_once_box": "0",
+  "prohibit_change_timezone_timestamp": "12345",
+  "number_of_choose": "200",
+  "first_install": "yes",
+  "number_of_readings": "3",
+  "speech_accent": "us",
+  "recognize": "z",
+  "blur": "x",
+  "forget": "c",
+  "click_show_translation": "v",
+  "click_back": "q",
+  "ui_mode": "dark",
+  "translation_language": "simplifiedchinese",
+  "subtitle_scale": "100",
+  "subtitle_opacity": "100",
+  "pos_content":"n.|a.|abbr.|ad.|adj.|adv.|art.|aux.|comb.|conj.|int.|neg.|num.|pl.|pref.|prep.|pron.|v.|vi.|vt.|",
+  "learn_color": "1F977E",
+  "version": "1.0.0"
+}

@@ -1,0 +1,1753 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>GlobSpeech</title>
+    <style>
+        :root {
+            --font-sans: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+        }
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+        html, body, #root { height: 100vh; width: 100vw; overflow: hidden; font-family: var(--font-sans); }
+
+        /* --- THEME DEFINITIONS --- */
+        body {
+            --bg-primary: #121212; --bg-secondary: #1e1e1e; --bg-tertiary: #2a2a2a;
+            --text-primary: #e0e0e0; --text-secondary: #a0a0a0; --border-color: #3a3a3a;
+            --shadow-color: rgba(0, 0, 0, 0.25); --pos-bg: rgba(255, 255, 255, 0.1); --pos-text: #c0c0c0;
+            --success-color: #28a745; --warning-color: #ffc107; --danger-color: #dc3545; --info-color: #17a2b8;
+            --primary-color: #007bff;
+            background-color: var(--bg-primary); color: var(--text-primary);
+            transition: background-color 0.3s, color 0.3s;
+        }
+        body.light-mode {
+            --bg-primary: #f4f5f7; --bg-secondary: #ffffff; --bg-tertiary: #e9ecef;
+            --text-primary: #212529; --text-secondary: #6c757d; --border-color: #dee2e6;
+            --shadow-color: rgba(0, 0, 0, 0.07); --pos-bg: rgba(0, 123, 255, 0.1); --pos-text: #0056b3;
+        }
+
+        /* --- LAYOUT: SIDE NAV + MAIN CONTENT --- */
+        #root { display: flex; flex-direction: row; }
+        .side-nav {
+            width: 80px; flex-shrink: 0; background-color: var(--bg-secondary);
+            border-right: 1px solid var(--border-color); display: flex; flex-direction: column;
+            align-items: center; padding: 20px 0; gap: 15px;
+        }
+        .app-main-content { flex-grow: 1; height: 100vh; overflow: hidden; }
+        .nav-button {
+            width: 56px; height: 56px; border: none; border-radius: 12px; cursor: pointer;
+            font-size: 14px; font-weight: 500; background-color: transparent; color: var(--text-secondary);
+            transition: background-color 0.2s, color 0.2s;
+        }
+        .nav-button.active { background-color: var(--primary-color); color: #ffffff; }
+        .nav-button:not(.active):hover { background-color: var(--bg-tertiary); color: var(--text-primary); }
+        .theme-toggle-wrapper { margin-top: auto; }
+        .theme-toggle-button {
+            width: 56px; height: 56px; font-size: 22px; background: none; border: none;
+            border-radius: 12px; cursor: pointer; color: var(--text-secondary);
+            transition: background-color 0.2s, color 0.2s;
+        }
+        .theme-toggle-button:hover { background-color: var(--bg-tertiary); color: var(--text-primary); }
+        .page-container {
+            width: 100%; height: 100%; padding: 24px; display: flex; flex-direction: column;
+            justify-content: center; align-items: center; text-align: center;
+        }
+
+        /* --- Learn Page Specific --- */
+        .learn-page-layout { display: flex; width: 100%; height: 100%; gap: 16px; padding: 16px; }
+        .learn-main-panel { flex-basis: 80%; display: flex; flex-direction: column; justify-content: flex-start; align-items: center; padding-top: 5vh; }
+        .learn-search-panel { flex-basis: 20%; background-color: var(--bg-secondary); border-radius: 12px; padding: 16px; display: flex; flex-direction: column; overflow: hidden; box-shadow: 0 4px 12px var(--shadow-color); }
+        .flashcard-container { width: 100%; max-width: 700px; height: 100%; max-height: 90vh; display: flex; flex-direction: column; }
+        .flashcard-header { position: relative; padding: 50px 20px 40px 20px; border-radius: 12px; text-align: center; margin-bottom: 20px; color: white; flex-shrink: 0; }
+        .flashcard-header h1 { font-size: 52px; font-weight: 700; margin: 0 0 10px; }
+        .flashcard-header .ipa-container { font-size: 24px; opacity: 0.9; min-height: 36px; }
+        .speaker-button { background: none; border: none; font-size: 28px; cursor: pointer; margin-left: 15px; color: white; vertical-align: middle; transition: transform 0.2s; }
+        .speaker-button:hover { transform: scale(1.1); }
+        .flashcard-body { background-color: var(--bg-secondary); border-radius: 12px; padding: 20px; box-shadow: 0 4px 12px var(--shadow-color); flex-grow: 1; display: flex; flex-direction: column; overflow: hidden; }
+        .click-to-reveal-wrapper { display: flex; align-items: center; justify-content: center; height: 100%; font-size: 18px; color: var(--text-secondary); cursor: pointer; }
+        .revealed-content { height: 100%; display: flex; flex-direction: column; cursor: default; }
+        .revealed-scroll-content { flex-grow: 1; overflow-y: auto; padding-right: 10px; }
+        .revealed-scroll-content::-webkit-scrollbar { width: 6px; }
+        .revealed-scroll-content::-webkit-scrollbar-track { background: transparent; }
+        .revealed-scroll-content::-webkit-scrollbar-thumb { background-color: var(--text-secondary); border-radius: 10px; }
+        .translation-section, .sentence-section { margin-bottom: 20px; }
+        .translation-section strong, .sentence-section strong { font-size: 18px; color: var(--text-primary); }
+        .sentence-pair { margin-top: 15px; padding-left: 10px; border-left: 2px solid var(--primary-color); }
+        .sentence-pair .eng-sentence, .sentence-pair .chn-sentence { font-size: 16px; color: var(--text-primary); margin-bottom: 4px; }
+        .sentence-pair .chn-sentence { color: var(--text-secondary); }
+        .action-buttons { display: flex; justify-content: center; gap: 20px; padding-top: 20px; flex-shrink: 0; }
+        .action-button { padding: 12px 28px; border: none; border-radius: 8px; cursor: pointer; font-size: 16px; font-weight: 600; color: #fff; transition: transform 0.1s, box-shadow 0.2s; }
+        .action-button:active { transform: translateY(1px); }
+        .action-button.recognize { background-color: var(--success-color); }
+        .action-button.blur { background-color: var(--warning-color); color: #212529; }
+        .action-button.forget { background-color: var(--danger-color); }
+        .status-bar-header { position: absolute; top: 18px; left: 50%; transform: translateX(-50%); color: rgba(255, 255, 255, 0.85); font-size: 14px; font-weight: 500; }
+        .back-button-header { position: absolute; top: 15px; left: 20px; padding: 8px 16px; background-color: rgba(255, 255, 255, 0.2); color: white; border: 1px solid rgba(255, 255, 255, 0.3); border-radius: 8px; cursor: pointer; backdrop-filter: blur(5px); -webkit-backdrop-filter: blur(5px); transition: background-color 0.2s; }
+        .back-button-header:hover { background-color: rgba(255, 255, 255, 0.3); }
+        .search-input-wrapper { margin-bottom: 16px; }
+        #search-input { width: 100%; padding: 12px; font-size: 16px; border-radius: 8px; border: 1px solid var(--border-color); background-color: var(--bg-tertiary); color: var(--text-primary); }
+        #search-input:focus { outline: none; border-color: var(--primary-color); box-shadow: 0 0 0 3px rgba(0, 123, 255, 0.25); }
+        .search-results { flex-grow: 1; overflow-y: auto; }
+        .search-results::-webkit-scrollbar { width: 6px; }
+        .search-results::-webkit-scrollbar-track { background: transparent; }
+        .search-results::-webkit-scrollbar-thumb { background-color: var(--text-secondary); border-radius: 10px; }
+        .search-result-item { padding: 12px; margin-bottom: 8px; border-radius: 8px; background-color: var(--bg-tertiary); text-align: left; }
+        .search-result-item .word, .search-result-item .translation { overflow-wrap: break-word; }
+        .search-result-item .word { font-size: 18px; font-weight: 600; color: var(--text-primary); }
+        .search-result-item .ipa { font-size: 14px; color: var(--text-secondary); margin-left: 8px; }
+        .search-result-item .translation { margin-top: 4px; font-size: 15px; color: var(--text-secondary); }
+        .no-tasks-message, .loading-message { font-size: 20px; color: var(--text-secondary); }
+        .pos-tag { background-color: var(--pos-bg); color: var(--pos-text); padding: 2px 6px; border-radius: 4px; font-size: 0.9em; font-weight: 500; margin: 0 2px; }
+        
+        /* --- Video Page Specific --- */
+        .video-page-layout { display: flex; width: 100%; height: 100%; gap: 16px; padding: 16px; }
+        .video-main-panel { flex-basis: 80%; display: flex; flex-direction: column; background-color: var(--bg-primary); border-radius: 12px; overflow: hidden; position: relative; }
+        .video-sidebar-panel { flex-basis: 20%; background-color: var(--bg-secondary); border-radius: 12px; padding: 16px; display: flex; flex-direction: column; overflow: hidden; }
+        .video-player-wrapper { flex-grow: 1; position: relative; display: flex; align-items: center; justify-content: center; }
+        .video-player-wrapper video { max-width: 100%; max-height: 100%; }
+        .video-placeholder { text-align: center; color: var(--text-secondary); }
+        .video-placeholder button { margin-top: 15px; padding: 10px 20px; font-size: 16px; cursor: pointer; border-radius: 8px; border: 1px solid var(--border-color); background-color: var(--bg-tertiary); color: var(--text-primary); }
+        .subtitle-overlay { position: absolute; bottom: 80px; left: 50%; transform: translateX(-50%); text-align: center; width: 90%; pointer-events: none; }
+        .subtitle-text { color: white; text-shadow: 2px 2px 4px #000; padding: 5px 15px; border-radius: 5px; display: inline; line-height: 1.5; }
+        .video-controls { background: linear-gradient(to top, rgba(0,0,0,0.7), transparent); padding: 15px; position: absolute; bottom: 0; left: 0; right: 0; display: flex; align-items: center; gap: 15px; }
+        .video-controls input[type="range"] { flex-grow: 1; }
+        .video-controls button, .video-controls span { color: white; background: none; border: none; font-size: 16px; }
+        .sidebar-word-section { flex-grow: 1; min-height: 0; display: flex; flex-direction: column; }
+        .sidebar-word-section h3 { flex-shrink: 0; font-size: 16px; margin-bottom: 10px; border-bottom: 1px solid var(--border-color); padding-bottom: 5px; }
+        .sidebar-word-list { flex-grow: 1; overflow-y: auto; padding-right: 5px; }
+        .sidebar-word-item { margin-bottom: 8px; }
+        .sidebar-word-item .word { font-weight: bold; }
+        .sidebar-settings-section { flex-shrink: 0; padding-top: 20px; border-top: 1px solid var(--border-color); margin-top: auto; }
+        .sidebar-settings-section h3 { font-size: 16px; margin-bottom: 10px; }
+        .sidebar-controls .control-group { margin-bottom: 15px; }
+        .sidebar-controls .control-group-buttons { display: flex; gap: 10px; }
+        .sidebar-controls label { display: block; margin-bottom: 5px; font-size: 14px; }
+        .sidebar-controls input[type="range"] { width: 100%; }
+        .sidebar-controls select { width: 100%; padding: 5px; background-color: var(--bg-tertiary); color: var(--text-primary); border: 1px solid var(--border-color); border-radius: 4px; }
+        .sidebar-action-button {
+            flex-grow: 1; padding: 10px; font-size: 14px; font-weight: 500;
+            border: 1px solid var(--border-color); background-color: var(--bg-tertiary);
+            color: var(--text-primary); border-radius: 8px; cursor: pointer;
+            transition: background-color 0.2s, border-color 0.2s; text-align: center;
+        }
+        .sidebar-action-button:hover { background-color: var(--bg-primary); border-color: var(--primary-color); }
+
+        /* --- Dictionary Page Specific --- */
+        .dictionary-layout { display: flex; width: 100%; height: 100%; gap: 20px; padding: 20px; }
+        .dictionary-left-panel, .dictionary-right-panel {
+            flex: 1; background-color: var(--bg-secondary); border-radius: 12px;
+            padding: 24px; display: flex; flex-direction: column; overflow: hidden;
+            box-shadow: 0 4px 12px var(--shadow-color);
+        }
+        .panel-header { font-size: 22px; font-weight: 600; margin-bottom: 20px; color: var(--text-primary); flex-shrink: 0; }
+        .search-bar {
+            width: 100%; padding: 12px 16px; font-size: 16px; border: 1px solid var(--border-color);
+            border-radius: 8px; background-color: var(--bg-tertiary); color: var(--text-primary);
+            margin-bottom: 16px; flex-shrink: 0; transition: border-color 0.2s, box-shadow 0.2s;
+        }
+        .search-bar:focus { outline: none; border-color: var(--primary-color); box-shadow: 0 0 0 2px rgba(0, 123, 255, 0.2); }
+        .tabs { display: flex; gap: 10px; margin-bottom: 16px; flex-shrink: 0; }
+        .tab-button {
+            padding: 8px 16px; border: none; background-color: var(--bg-tertiary);
+            color: var(--text-secondary); cursor: pointer; font-size: 14px; font-weight: 500;
+            border-radius: 8px; transition: all 0.2s;
+        }
+        .tab-button.active { background-color: var(--primary-color); color: white; box-shadow: 0 2px 8px rgba(0, 123, 255, 0.3); }
+        .tab-button:not(.active):hover { color: var(--text-primary); background-color: color-mix(in srgb, var(--bg-tertiary) 80%, white); }
+        .word-list-container { flex-grow: 1; min-height: 0; user-select: none; }
+        .word-item {
+            display: flex; align-items: center; background-color: var(--bg-tertiary);
+            border-radius: 10px; cursor: pointer; transition: background-color 0.2s, transform 0.2s;
+            position: relative; height: 100px; margin-bottom: 8px;
+        }
+        .word-item:hover { background-color: var(--bg-primary); transform: translateY(-1px); }
+        .word-checkbox { width: 18px; height: 18px; border: 2px solid var(--border-color); border-radius: 50%; margin: 0 16px; position: relative; flex-shrink: 0; transition: all 0.2s; }
+        .word-checkbox.checked { background-color: var(--primary-color); border-color: var(--primary-color); }
+        .word-checkbox.checked::after { content: '✓'; position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); color: white; font-size: 12px; font-weight: bold; }
+        .word-checkbox.disabled { background-color: var(--text-secondary); border-color: var(--text-secondary); cursor: not-allowed; opacity: 0.6; }
+        .word-content { flex-grow: 1; padding: 12px 0; display: flex; flex-direction: column; justify-content: center; min-width: 0; height: 100%; }
+        .word-text { font-size: 16px; font-weight: 600; color: var(--text-primary); margin-bottom: 6px; line-height: 1.3; }
+        .word-translation { font-size: 14px; color: var(--text-secondary); line-height: 1.4; overflow-wrap: break-word; flex-grow: 1; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+        .action-bar { display: flex; align-items: center; gap: 12px; padding-top: 16px; border-top: 1px solid var(--border-color); margin-top: 16px; flex-shrink: 0; }
+        .action-info { color: var(--text-secondary); font-size: 14px; font-weight: 500; }
+        .action-info-error { color: var(--warning-color); font-size: 13px; font-weight: 500; margin-right: auto; }
+        .action-button-secondary, .action-button-primary { padding: 8px 16px; border-radius: 8px; cursor: pointer; font-size: 14px; font-weight: 500; transition: all 0.2s; }
+        .action-button-secondary { border: 1px solid var(--border-color); background-color: var(--bg-tertiary); color: var(--text-primary); }
+        .action-button-secondary:hover { background-color: var(--bg-primary); border-color: var(--primary-color); }
+        .action-button-primary { border: 1px solid var(--primary-color); background-color: var(--primary-color); color: white; }
+        .action-button-primary:hover { background-color: #0056b3; border-color: #0056b3; box-shadow: 0 2px 8px rgba(0, 123, 255, 0.3); }
+        .action-button-primary:disabled { background-color: var(--text-secondary); border-color: var(--text-secondary); cursor: not-allowed; box-shadow: none; }
+        .select-by-count-wrapper { display: flex; align-items: center; gap: 8px; margin-right: auto; }
+        .select-count-input { width: 70px; padding: 8px; font-size: 14px; border: 1px solid var(--border-color); border-radius: 8px; background-color: var(--bg-tertiary); color: var(--text-primary); transition: border-color 0.2s, box-shadow 0.2s; text-align: center; }
+        .select-count-input:focus { outline: none; border-color: var(--primary-color); box-shadow: 0 0 0 2px rgba(0, 123, 255, 0.2); }
+        .select-count-input::-webkit-outer-spin-button, .select-count-input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+        .select-count-input[type=number] { -moz-appearance: textfield; }
+        .dictionary-list { flex-grow: 1; overflow-y: auto; margin-bottom: 16px; }
+        .dictionary-item { padding: 16px; margin-bottom: 10px; background-color: var(--bg-tertiary); border-radius: 8px; cursor: pointer; transition: all 0.2s; display: flex; justify-content: space-between; align-items: center; }
+        .dictionary-item:hover { background-color: var(--bg-primary); transform: translateY(-1px); }
+        .dictionary-item.active { background-color: var(--primary-color); color: white; }
+        .dictionary-name { font-size: 16px; font-weight: 500; }
+        .dictionary-actions { display: flex; gap: 8px; }
+        .icon-button { padding: 6px; background: none; border: none; color: var(--text-secondary); cursor: pointer; font-size: 16px; border-radius: 6px; transition: all 0.2s; }
+        .dictionary-item.active .icon-button { color: white; }
+        .icon-button:hover { background-color: rgba(255, 255, 255, 0.1); transform: scale(1.1); }
+        .add-dictionary-section { border-top: 1px solid var(--border-color); padding-top: 16px; flex-shrink: 0; }
+        .add-button { width: 100%; padding: 12px; border: 1px dashed var(--border-color); background: none; color: var(--text-secondary); border-radius: 8px; cursor: pointer; font-size: 14px; font-weight: 500; transition: all 0.2s; margin-bottom: 10px; }
+        .add-button:hover { border-color: var(--primary-color); color: var(--primary-color); background-color: rgba(0, 123, 255, 0.05); }
+        .modal-backdrop { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background-color: rgba(0, 0, 0, 0.6); display: flex; align-items: center; justify-content: center; z-index: 1000; backdrop-filter: blur(4px); }
+        .modal { background-color: var(--bg-secondary); border-radius: 12px; padding: 24px; min-width: 450px; max-width: 90vw; max-height: 90vh; overflow-y: auto; box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3); border: 1px solid var(--border-color); display: flex; flex-direction: column; }
+        .modal-header { font-size: 20px; font-weight: 600; margin-bottom: 20px; color: var(--text-primary); flex-shrink: 0; }
+        .modal-input, .modal-textarea { width: 100%; padding: 10px 14px; margin-bottom: 16px; border: 1px solid var(--border-color); border-radius: 8px; background-color: var(--bg-tertiary); color: var(--text-primary); font-size: 14px; transition: border-color 0.2s, box-shadow 0.2s; }
+        .modal-input:focus, .modal-textarea:focus { outline: none; border-color: var(--primary-color); box-shadow: 0 0 0 2px rgba(0, 123, 255, 0.2); }
+        .modal-textarea { min-height: 200px; resize: vertical; font-family: inherit; line-height: 1.5; }
+        .modal-actions { display: flex; justify-content: flex-end; gap: 12px; margin-top: 8px; flex-shrink: 0; }
+        .progress-bar { width: 90%; height: 4px; background-color: var(--border-color); border-radius: 2px; overflow: hidden; margin-top: 6px; }
+        .progress-fill { height: 100%; background: linear-gradient(90deg, var(--success-color), #20c997); transition: width 0.3s ease; border-radius: 2px; }
+        .word-actions-container { display: flex; align-items: center; margin-left: auto; padding-right: 16px; height: 100%; }
+        .remove-button, .delete-from-dict-button { padding: 5px 10px; font-size: 12px; background-color: var(--danger-color); color: white; border: none; border-radius: 6px; cursor: pointer; font-weight: 500; transition: all 0.2s; }
+        .remove-button:hover, .delete-from-dict-button:hover { background-color: #c82333; transform: translateY(-1px); }
+        .word-item.in-learning { opacity: 0.85; }
+        .paste-button { writing-mode: vertical-rl; text-orientation: mixed; display: flex; align-items: center; justify-content: center; padding: 0 12px; background-color: var(--bg-tertiary); color: var(--text-primary); border: 1px solid var(--border-color); border-radius: 8px; cursor: pointer; font-size: 14px; font-weight: 500; margin-left: 10px; transition: all 0.2s; letter-spacing: 4px; }
+        .paste-button:hover { background-color: var(--bg-primary); border-color: var(--primary-color); }
+        .input-wrapper { display: flex; align-items: stretch; margin-bottom: 16px; }
+        .dictionary-content { display: none; }
+        .dictionary-content.active { display: flex; flex-direction: column; height: 100%; }
+        .back-to-list { padding: 8px 16px; margin-bottom: 16px; background-color: var(--bg-tertiary); color: var(--text-primary); border: 1px solid var(--border-color); border-radius: 8px; cursor: pointer; font-size: 14px; font-weight: 500; align-self: flex-start; flex-shrink: 0; transition: all 0.2s; }
+        .back-to-list:hover { background-color: var(--bg-primary); border-color: var(--primary-color); }
+        .dictionary-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; flex-shrink: 0; }
+        .dictionary-title { font-size: 20px; font-weight: 600; color: var(--text-primary); }
+        .virtualized-list-container { height: 100%; width: 100%; overflow-y: auto; overflow-x: hidden; }
+        .virtualized-list-container::-webkit-scrollbar { width: 6px; }
+        .virtualized-list-container::-webkit-scrollbar-track { background: transparent; }
+        .virtualized-list-container::-webkit-scrollbar-thumb { background-color: var(--text-secondary); border-radius: 3px; }
+        .virtualized-list-spacer { position: relative; width: 100%; }
+        .virtualized-list-item-wrapper { position: absolute; left: 0; right: 6px; contain: layout; }
+        .tab-count { font-size: 0.8em; color: var(--text-secondary); margin-left: 4px; }
+        .dictionary-item-count { font-size: 14px; color: var(--text-secondary); }
+
+        /* --- Settings Page Specific --- */
+        .settings-page { padding: 30px; height: 100%; overflow-y: auto; }
+        .settings-page::-webkit-scrollbar { width: 6px; }
+        .settings-page::-webkit-scrollbar-track { background: var(--bg-primary); }
+        .settings-page::-webkit-scrollbar-thumb { background-color: var(--text-secondary); border-radius: 10px; }
+        .settings-header { font-size: 28px; font-weight: 700; margin-bottom: 30px; color: var(--text-primary); border-bottom: 1px solid var(--border-color); padding-bottom: 15px; }
+        .settings-section { background-color: var(--bg-secondary); border-radius: 12px; padding: 24px; margin-bottom: 24px; box-shadow: 0 4px 12px var(--shadow-color); }
+        .settings-section-header { font-size: 18px; font-weight: 600; margin-bottom: 20px; }
+        .settings-item { display: flex; justify-content: space-between; align-items: center; padding: 12px 0; border-bottom: 1px solid var(--border-color); flex-wrap: wrap; gap: 10px; }
+        .settings-item:last-child { border-bottom: none; }
+        .settings-item-label { font-size: 15px; color: var(--text-primary); }
+        .settings-item-control { display: flex; align-items: center; gap: 10px; }
+        .settings-item-info { font-size: 14px; color: var(--text-secondary); }
+        .settings-button-group .btn { padding: 6px 14px; border: 1px solid var(--border-color); background-color: var(--bg-tertiary); color: var(--text-primary); border-radius: 6px; cursor: pointer; transition: all 0.2s; }
+        .settings-button-group .btn.active { background-color: var(--primary-color); color: white; border-color: var(--primary-color); }
+        .settings-button-group .btn:not(.active):hover { border-color: var(--text-primary); }
+        .settings-select { padding: 6px 10px; border: 1px solid var(--border-color); background-color: var(--bg-tertiary); color: var(--text-primary); border-radius: 6px; }
+        .settings-color-picker-trigger { width: 36px; height: 36px; border-radius: 8px; border: 2px solid var(--border-color); cursor: pointer; background-color: transparent; padding: 0; }
+        .settings-action-button { padding: 10px 20px; border: 1px solid var(--border-color); background-color: var(--bg-tertiary); color: var(--text-primary); border-radius: 8px; cursor: pointer; transition: all 0.2s; }
+        .settings-action-button:hover { border-color: var(--primary-color); background-color: var(--bg-primary); }
+        .settings-action-button.danger { border-color: var(--danger-color); color: var(--danger-color); }
+        .settings-action-button.danger:hover { background-color: var(--danger-color); color: white; }
+        .lemmatizer-modal-content { display: flex; gap: 20px; height: 100%; flex-grow: 1; }
+        .lemmatizer-col { flex: 1; display: flex; flex-direction: column; }
+        .lemmatizer-col textarea { flex-grow: 1; resize: none; }
+        .lemmatizer-controls { display: flex; flex-direction: column; justify-content: center; gap: 15px; }
+        .lemmatizer-controls fieldset { border: 1px solid var(--border-color); border-radius: 8px; padding: 10px; }
+        .lemmatizer-controls legend { padding: 0 5px; font-size: 14px; }
+        .lemmatizer-controls label { display: block; margin-bottom: 5px; }
+        .loading-overlay { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background-color: rgba(0, 0, 0, 0.7); display: flex; align-items: center; justify-content: center; z-index: 2000; backdrop-filter: blur(4px); flex-direction: column; gap: 15px; color: white; }
+        .spinner { border: 4px solid rgba(255, 255, 255, 0.3); border-radius: 50%; border-top: 4px solid #fff; width: 40px; height: 40px; animation: spin 1s linear infinite; }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+
+        /* --- Custom Color Picker Modal --- */
+        .color-picker-modal-content { display: flex; gap: 20px; }
+        .color-picker-main { display: flex; flex-direction: column; gap: 15px; }
+        .color-picker-canvas-wrapper { position: relative; cursor: crosshair; }
+        .color-picker-canvas { border-radius: 8px; }
+        .color-picker-marker { position: absolute; width: 14px; height: 14px; border: 2px solid white; border-radius: 50%; box-shadow: 0 0 0 1px black; pointer-events: none; transform: translate(-7px, -7px); }
+        .color-picker-controls { display: flex; flex-direction: column; gap: 15px; }
+        .color-picker-preview { width: 100%; height: 40px; border-radius: 8px; border: 1px solid var(--border-color); }
+        .color-picker-inputs { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+        .color-picker-input-group { display: flex; flex-direction: column; }
+        .color-picker-input-group label { font-size: 12px; color: var(--text-secondary); margin-bottom: 4px; text-align: center; }
+        .color-picker-input-group input { width: 100%; padding: 8px; text-align: center; background-color: var(--bg-tertiary); color: var(--text-primary); border: 1px solid var(--border-color); border-radius: 6px; }
+        .color-picker-input-group input::-webkit-outer-spin-button, .color-picker-input-group input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+        .color-picker-input-group input[type=number] { -moz-appearance: textfield; }
+    </style>
+</head>
+<body>
+    <div id="root"></div>
+    <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <script type="text/babel">
+const { useState, useEffect, useCallback, useMemo, useRef, Fragment } = React;
+
+// --- Cache Manager (Unchanged) ---
+const cacheManager = {
+    foundation: null, wordIdMap: null, translations: null, selfNowWordIds: null,
+    selfNowMap: null, selfDictionaries: null, initialized: false,
+    async initialize() {
+        if (this.initialized) return;
+        const start = performance.now();
+        console.log('Starting cache initialization...');
+        const [foundation, config, selfNowData, dictionaries] = await Promise.all([
+            window.electronAPI.loadFoundation(), window.electronAPI.loadConfig(),
+            window.electronAPI.loadSelfNow(), window.electronAPI.loadSelfDictionaries()
+        ]);
+        this.foundation = foundation;
+        this.wordIdMap = new Map(foundation.map(word => [word.id, word]));
+        const translationFile = `${config.translation_language}_foundation.csv`;
+        const translationData = await window.electronAPI.loadCsv(translationFile);
+        this.translations = new Map(translationData.map(row => [parseInt(row[0]), row[1]]));
+        this.selfNowWordIds = new Set(selfNowData.map(row => row.word_id));
+        this.selfNowMap = new Map(selfNowData.map(row => [row.word_id, row]));
+        this.selfDictionaries = dictionaries;
+        this.initialized = true;
+        const end = performance.now();
+        console.log(`Cache initialization completed in ${(end - start).toFixed(2)}ms`);
+    },
+    getWordById(id) { return this.wordIdMap.get(id); },
+    isWordInLearning(wordId) { return this.selfNowWordIds.has(wordId); },
+    getTranslation(wordId) { return this.translations.get(wordId) || ''; },
+    getProgress(wordId) {
+        const row = this.selfNowMap.get(wordId);
+        if (!row) return 0;
+        const progressMap = { "A":0,"B":0.02,"C":0.05,"D":0.15,"E":0.35,"F":0.5,"G":0.65,"H":0.75,"I":0.85,"J":0.95,"K":0.98,"L":1,"M":1 };
+        return progressMap[row.long_status] || 0;
+    },
+    async refreshSelfNow() {
+        const selfNowData = await window.electronAPI.loadSelfNow();
+        this.selfNowWordIds = new Set(selfNowData.map(row => row.word_id));
+        this.selfNowMap = new Map(selfNowData.map(row => [row.word_id, row]));
+    },
+    async refreshDictionaries() { this.selfDictionaries = await window.electronAPI.loadSelfDictionaries(); }
+};
+
+// --- Speech Synthesis Manager (UPDATED FOR WARM-UP) ---
+const speechManager = {
+    warmUp: () => {
+        if (!window.speechSynthesis) {
+            console.warn("Speech Synthesis not supported.");
+            return;
+        }
+        // Proactively speak a silent utterance to initialize the engine and prevent first-use delay.
+        const utterance = new SpeechSynthesisUtterance(' '); // A non-empty string is required by some engines
+        utterance.volume = 0; // Make it silent
+        utterance.rate = 10; // Make it finish as fast as possible
+        window.speechSynthesis.speak(utterance);
+        
+        // The onvoiceschanged listener is still good practice as a fallback for asynchronous voice loading.
+        window.speechSynthesis.onvoiceschanged = () => {
+            console.log("Speech synthesis voices have been loaded.");
+        };
+    },
+    cancel: () => { if (window.speechSynthesis?.speaking) window.speechSynthesis.cancel(); },
+    speak: (text, accent = 'us') => {
+        speechManager.cancel();
+        if (!text || !window.speechSynthesis) return;
+        const utterance = new SpeechSynthesisUtterance(text);
+        const targetLang = accent === 'gb' ? 'en-GB' : 'en-US';
+        const voices = window.speechSynthesis.getVoices();
+        utterance.voice = voices.find(v => v.lang === targetLang) || voices.find(v => v.lang.startsWith('en-'));
+        utterance.lang = targetLang;
+        window.speechSynthesis.speak(utterance);
+    }
+};
+
+// --- Rich Text Display Component (Unchanged) ---
+function RichTextDisplay({ text, posList }) {
+    if (!text) return null;
+    const lines = text.split('\n').filter(line => line.trim() !== '');
+    return (
+        <>{lines.map((line, lineIndex) => {
+            const cleanedLine = line.trim().replace(/^"|"$/g, '');
+            if (!cleanedLine) return null;
+            const regex = new RegExp(`(${posList.join('|').replace(/\./g, '\\.')})`, 'g');
+            const parts = cleanedLine.split(regex);
+            return (
+                <div key={lineIndex} style={{lineHeight: 1.4}}>
+                    {parts.map((part, partIndex) => 
+                        posList.includes(part) ? <span key={partIndex} className="pos-tag">{part}</span> : part
+                    )}
+                </div>
+            );
+        })}</>
+    );
+}
+
+// --- VirtualizedList Component (Unchanged) ---
+function VirtualizedList({ items, itemHeight, renderItem, buffer = 5 }) {
+    const containerRef = useRef(null);
+    const [visibleRange, setVisibleRange] = useState({ start: 0, end: 0 });
+    const updateVisibleRange = useCallback(() => {
+        if (!containerRef.current) return;
+        const { scrollTop, clientHeight } = containerRef.current;
+        const start = Math.max(0, Math.floor(scrollTop / itemHeight) - buffer);
+        const end = Math.min(items.length, Math.ceil((scrollTop + clientHeight) / itemHeight) + buffer);
+        setVisibleRange({ start, end });
+    }, [items.length, itemHeight, buffer]);
+    useEffect(() => {
+        updateVisibleRange();
+        const container = containerRef.current;
+        if (container) {
+            container.addEventListener('scroll', updateVisibleRange, { passive: true });
+            return () => container.removeEventListener('scroll', updateVisibleRange);
+        }
+    }, [updateVisibleRange]);
+    const visibleItems = useMemo(() => {
+        return items.slice(visibleRange.start, visibleRange.end).map((item, index) => ({
+            item, style: { top: (visibleRange.start + index) * itemHeight, height: itemHeight }
+        }));
+    }, [items, itemHeight, visibleRange]);
+    return (
+        <div ref={containerRef} className="virtualized-list-container">
+            <div className="virtualized-list-spacer" style={{ height: items.length * itemHeight }}>
+                {visibleItems.map(({ item, style }, index) => (
+                    <div key={`${item.id}-${visibleRange.start + index}`} className="virtualized-list-item-wrapper" style={style}>
+                        {renderItem(item)}
+                    </div>
+                ))}
+            </div>
+        </div>
+    );
+}
+
+// --- Dictionary Page Component (Unchanged) ---
+function DictionaryPage({ config }) {
+    const [masterTab, setMasterTab] = useState('all');
+    const [customDictTab, setCustomDictTab] = useState('all');
+    const [selectedWords, setSelectedWords] = useState(new Set());
+    const [searchTerm, setSearchTerm] = useState('');
+    const [canAdd, setCanAdd] = useState(true);
+    const [showAddModal, setShowAddModal] = useState(false);
+    const [showEditModal, setShowEditModal] = useState(false);
+    const [showUrlModal, setShowUrlModal] = useState(false);
+    const [editingDictionary, setEditingDictionary] = useState(null);
+    const [activeDictionary, setActiveDictionary] = useState(null);
+    const [dictionarySearchTerm, setDictionarySearchTerm] = useState('');
+    const [forceUpdate, setForceUpdate] = useState(0);
+    const [selectCount, setSelectCount] = useState('');
+    const [isDragging, setIsDragging] = useState(false);
+    const [dragSelectMode, setDragSelectMode] = useState(null);
+    const posList = useMemo(() => config.pos_content?.split('|').filter(p => p) || [], [config.pos_content]);
+
+    useEffect(() => {
+        const handleMouseUp = () => { if (isDragging) { setIsDragging(false); setDragSelectMode(null); } };
+        window.addEventListener('mouseup', handleMouseUp);
+        return () => window.removeEventListener('mouseup', handleMouseUp);
+    }, [isDragging]);
+
+    const checkCanAdd = async () => {
+        const boxId = await window.electronAPI.whichNowBox();
+        setCanAdd(boxId !== 999999);
+    };
+    useEffect(() => { checkCanAdd(); }, []);
+
+    const refreshData = async () => {
+        await cacheManager.refreshSelfNow();
+        await cacheManager.refreshDictionaries();
+        setSelectedWords(new Set());
+        await checkCanAdd();
+        setForceUpdate(v => v + 1);
+    };
+
+    const handleWordMouseDown = (e, word) => {
+        e.preventDefault(); if (cacheManager.isWordInLearning(word.id)) return;
+        setIsDragging(true);
+        const newSelected = new Set(selectedWords);
+        const isCurrentlySelected = newSelected.has(word.id);
+        const mode = isCurrentlySelected ? 'deselect' : 'select';
+        setDragSelectMode(mode);
+        if (mode === 'deselect') newSelected.delete(word.id); else newSelected.add(word.id);
+        setSelectedWords(newSelected);
+    };
+
+    const handleWordMouseEnter = (word) => {
+        if (!isDragging || cacheManager.isWordInLearning(word.id)) return;
+        const newSelected = new Set(selectedWords);
+        if (dragSelectMode === 'select') newSelected.add(word.id);
+        else if (dragSelectMode === 'deselect') newSelected.delete(word.id);
+        setSelectedWords(newSelected);
+    };
+
+    const handleAddWords = async () => {
+        if (selectedWords.size === 0 || !canAdd) return;
+        const wordIds = Array.from(selectedWords).join('|') + '|';
+        const result = await window.electronAPI.insertFirstBatch(wordIds);
+        if (result === 'done') { alert('添加成功！'); await refreshData(); }
+        else if (result === 'zero_row_now') { alert('添加失败，当前没有学习任务。'); await refreshData(); }
+    };
+
+    const handleSelectTopN = () => {
+        const count = parseInt(selectCount, 10);
+        if (isNaN(count) || count <= 0) { setSelectedWords(new Set()); return; }
+        const selectableWords = filteredCustomWords.filter(word => !cacheManager.isWordInLearning(word.id));
+        const idsToSelect = selectableWords.slice(0, count).map(word => word.id);
+        setSelectedWords(new Set(idsToSelect));
+    };
+
+    const handleRemoveFromLearning = async (wordId) => {
+        if (confirm('确定要移出学习序列吗？')) {
+            const result = await window.electronAPI.delWordIdSelfNow(wordId);
+            if (result === 200) await refreshData();
+        }
+    };
+
+    const handleDeleteFromDictionary = async (wordIdToDelete, bookId) => {
+        if (!confirm('你确定把这个单词从本词库中删除吗？')) return;
+        const result = await window.electronAPI.removeContentInnerIdFromBook(bookId, wordIdToDelete);
+        if (result === 200) {
+            await refreshData();
+            if (activeDictionary && activeDictionary.book_id === bookId) {
+                const updatedDict = await window.electronAPI.loadSelfDictionaries().then(dicts => dicts.find(d => d.book_id === bookId));
+                if (updatedDict) setActiveDictionary(updatedDict);
+            }
+        } else alert("删除失败，请重试。");
+    };
+
+    const handleDeleteDictionary = async (bookId) => {
+        if (!confirm('确定要删除这个词库吗？')) return;
+        const result = await window.electronAPI.removeDictionary(bookId);
+        if (result === 200) { await refreshData(); setActiveDictionary(null); }
+    };
+
+    const handleShowAddModal = () => {
+        const userDicts = cacheManager.selfDictionaries.filter(d => d.book_timestamp > 999).length;
+        if (userDicts >= 10) {
+            alert('您已创建10个自定义词库，已达上限。');
+            return;
+        }
+        setShowAddModal(true);
+    };
+
+    const masterWordCounts = useMemo(() => {
+        const all = cacheManager.foundation || [];
+        const selected = all.filter(w => cacheManager.isWordInLearning(w.id));
+        return { all: all.length, selected: selected.length, unselected: all.length - selected.length };
+    }, [forceUpdate]);
+
+    const customWordCounts = useMemo(() => {
+        if (!activeDictionary) return { all: 0, selected: 0, unselected: 0 };
+        const wordIds = (activeDictionary.book_content || '').split('|').filter(id => id).map(id => parseInt(id));
+        const allWords = wordIds.map(id => cacheManager.getWordById(id)).filter(Boolean);
+        const selected = allWords.filter(w => cacheManager.isWordInLearning(w.id));
+        return { all: allWords.length, selected: selected.length, unselected: allWords.length - selected.length };
+    }, [activeDictionary, forceUpdate]);
+
+    const filteredMasterWords = useMemo(() => {
+        let words = cacheManager.foundation;
+        if (masterTab === 'selected') words = words.filter(w => cacheManager.isWordInLearning(w.id));
+        if (masterTab === 'unselected') words = words.filter(w => !cacheManager.isWordInLearning(w.id));
+        
+        const searchLower = searchTerm.toLowerCase();
+        if (searchTerm) {
+            return words.filter(word => {
+                const wordLower = word.word.toLowerCase();
+                const translation = cacheManager.getTranslation(word.id).toLowerCase();
+                return wordLower.includes(searchLower) || translation.includes(searchLower);
+            });
+        }
+        return words;
+    }, [searchTerm, masterTab, forceUpdate]);
+
+    const filteredCustomWords = useMemo(() => {
+        if (!activeDictionary) return [];
+        const wordIds = (activeDictionary.book_content || '').split('|').filter(id => id).map(id => parseInt(id));
+        let allWords = wordIds.map(id => cacheManager.getWordById(id)).filter(Boolean);
+
+        if (customDictTab === 'selected') allWords = allWords.filter(w => cacheManager.isWordInLearning(w.id));
+        if (customDictTab === 'unselected') allWords = allWords.filter(w => !cacheManager.isWordInLearning(w.id));
+        
+        const searchLower = dictionarySearchTerm.toLowerCase();
+        if (dictionarySearchTerm) {
+            return allWords.filter(word => {
+                const wordLower = word.word.toLowerCase();
+                const translation = cacheManager.getTranslation(word.id).toLowerCase();
+                return wordLower.includes(searchLower) || translation.includes(searchLower);
+            });
+        }
+        return allWords;
+    }, [activeDictionary, dictionarySearchTerm, customDictTab, forceUpdate]);
+
+    const renderWordItem = (word, { isCustomDict, bookId } = {}) => {
+        const isInLearning = cacheManager.isWordInLearning(word.id);
+        const progress = isInLearning ? cacheManager.getProgress(word.id) : 0;
+        const currentTab = isCustomDict ? customDictTab : masterTab;
+        return (
+            <div className="word-item" onMouseDown={(e) => handleWordMouseDown(e, word)} onMouseEnter={() => handleWordMouseEnter(word)}>
+                <div className={`word-checkbox ${selectedWords.has(word.id) ? 'checked' : ''} ${isInLearning ? 'disabled' : ''}`} />
+                <div className="word-content">
+                    <div className="word-text">{word.word}</div>
+                    <div className="word-translation"><RichTextDisplay text={cacheManager.getTranslation(word.id)} posList={posList} /></div>
+                    {isInLearning && currentTab === 'selected' && (<div className="progress-bar"><div className="progress-fill" style={{ width: `${progress * 100}%` }} /></div>)}
+                </div>
+                <div className="word-actions-container">
+                    {isInLearning && currentTab === 'selected' && (<button className="remove-button" onClick={(e) => { e.stopPropagation(); handleRemoveFromLearning(word.id); }}>移除</button>)}
+                    {isCustomDict && currentTab === 'all' && (<button className="delete-from-dict-button" onClick={(e) => { e.stopPropagation(); handleDeleteFromDictionary(word.id, bookId); }}>删除</button>)}
+                </div>
+            </div>
+        );
+    };
+    
+    const getWordCount = (dict) => (dict.book_content || '').split('|').filter(id => id).length;
+
+    return (
+        <div className="dictionary-layout">
+            <div className="dictionary-left-panel">
+                <h2 className="panel-header">总词典</h2>
+                <input type="text" className="search-bar" placeholder="搜索总词典..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} />
+                <div className="tabs">
+                    <button className={`tab-button ${masterTab === 'all' ? 'active' : ''}`} onClick={() => setMasterTab('all')}>全部<span className="tab-count">({masterWordCounts.all})</span></button>
+                    <button className={`tab-button ${masterTab === 'selected' ? 'active' : ''}`} onClick={() => setMasterTab('selected')}>已选择<span className="tab-count">({masterWordCounts.selected})</span></button>
+                    <button className={`tab-button ${masterTab === 'unselected' ? 'active' : ''}`} onClick={() => setMasterTab('unselected')}>未选择<span className="tab-count">({masterWordCounts.unselected})</span></button>
+                </div>
+                <div className="word-list-container"><VirtualizedList items={filteredMasterWords} itemHeight={108} renderItem={(word) => renderWordItem(word, { isCustomDict: false })} /></div>
+                <div className="action-bar">
+                    {canAdd ? (
+                        <span className="action-info" style={{marginRight: 'auto'}}>已选中 {selectedWords.size} 个</span>
+                    ) : (
+                        <span className="action-info-error">因为你修改了时区，当前没有办法添加单词，最多24小时之内就会恢复</span>
+                    )}
+                    <button className="action-button-secondary" onClick={() => setSelectedWords(new Set())}>取消</button>
+                    <button className="action-button-primary" onClick={handleAddWords} disabled={selectedWords.size === 0 || !canAdd}>添加</button>
+                </div>
+            </div>
+            <div className="dictionary-right-panel">
+                {!activeDictionary ? (
+                    <><h2 className="panel-header">词库们</h2>
+                    <div className="dictionary-list">
+                        {cacheManager.selfDictionaries.map(dict => (
+                            <div key={dict.book_id} className="dictionary-item" onClick={() => setActiveDictionary(dict)}>
+                                <span className="dictionary-name">{dict.book_name}</span>
+                                <div style={{display: 'flex', alignItems: 'center', gap: '15px'}}>
+                                    <span className="dictionary-item-count">{getWordCount(dict)} 词</span>
+                                    {dict.book_timestamp > 999 && (
+                                        <div className="dictionary-actions" onClick={(e) => e.stopPropagation()}>
+                                            <button className="icon-button" onClick={() => { setEditingDictionary(dict); setShowEditModal(true); }}>✏️</button>
+                                            <button className="icon-button" onClick={() => handleDeleteDictionary(dict.book_id)}>🗑️</button>
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+                    <div className="add-dictionary-section">
+                        <button className="add-button" onClick={handleShowAddModal}>+ 添加新词库</button>
+                        <button className="add-button" onClick={() => setShowUrlModal(true)}>+ 通过网络添加词库</button>
+                    </div></>
+                ) : (
+                    <><button className="back-to-list" onClick={() => { setActiveDictionary(null); setDictionarySearchTerm(''); }}>← 返回列表</button>
+                    <div className="dictionary-header"><h3 className="dictionary-title">{activeDictionary.book_name}</h3></div>
+                    <input type="text" className="search-bar" placeholder="搜索词库..." value={dictionarySearchTerm} onChange={(e) => setDictionarySearchTerm(e.target.value)} />
+                    <div className="tabs">
+                        <button className={`tab-button ${customDictTab === 'all' ? 'active' : ''}`} onClick={() => setCustomDictTab('all')}>全部<span className="tab-count">({customWordCounts.all})</span></button>
+                        <button className={`tab-button ${customDictTab === 'selected' ? 'active' : ''}`} onClick={() => setCustomDictTab('selected')}>已选择<span className="tab-count">({customWordCounts.selected})</span></button>
+                        <button className={`tab-button ${customDictTab === 'unselected' ? 'active' : ''}`} onClick={() => setCustomDictTab('unselected')}>未选择<span className="tab-count">({customWordCounts.unselected})</span></button>
+                    </div>
+                    <div className="word-list-container"><VirtualizedList items={filteredCustomWords} itemHeight={108} renderItem={(word) => renderWordItem(word, { isCustomDict: true, bookId: activeDictionary.book_id })} /></div>
+                    <div className="action-bar">
+                        <div className="select-by-count-wrapper">
+                            <input type="number" className="select-count-input" placeholder="数量" value={selectCount} onChange={(e) => setSelectCount(e.target.value)} min="1" />
+                            <button className="action-button-secondary" onClick={handleSelectTopN} style={{padding: '8px 12px'}}>选择前缀</button>
+                        </div>
+                         {canAdd ? (
+                            <span className="action-info">已选中 {selectedWords.size} 个</span>
+                         ) : (
+                            <span className="action-info-error">时区更改后无法添加</span>
+                         )}
+                        <button className="action-button-secondary" onClick={() => setSelectedWords(new Set())}>取消</button>
+                        <button className="action-button-primary" onClick={handleAddWords} disabled={selectedWords.size === 0 || !canAdd}>添加</button>
+                    </div></>
+                )}
+            </div>
+            {showAddModal && <AddDictionaryModal onClose={() => setShowAddModal(false)} onAdd={async (name, content) => {
+                const processedContent = content.split('\n').map(line => line.replace(/[^a-zA-Z]/g, '').toLowerCase()).filter(word => word.length > 0).join('|') + '|';
+                const result = await window.electronAPI.addDictionary(name, processedContent);
+                if (result === 200) { await refreshData(); setShowAddModal(false); }
+            }} />}
+            {showEditModal && editingDictionary && <EditDictionaryModal dictionary={editingDictionary} onClose={() => { setShowEditModal(false); setEditingDictionary(null); }} onSave={async (bookId, name, content) => {
+                const processedContent = content.split('\n').map(line => line.replace(/[^a-zA-Z]/g, '').toLowerCase()).filter(word => word.length > 0).join('|') + '|';
+                const result = await window.electronAPI.modifyDictionary(bookId, name, processedContent);
+                if (result === 200) { await refreshData(); setShowEditModal(false); setEditingDictionary(null); }
+            }} />}
+            {showUrlModal && <UrlDictionaryModal onClose={() => setShowUrlModal(false)} onAdd={async (url) => {
+                try {
+                    const response = await fetch(url);
+                    if (!response.ok) throw new Error('网络请求失败');
+                    const text = await response.text();
+                    if (text.length > 1024 * 1024) { alert('文件太大，超过1MB限制'); return; }
+                    const lines = text.split('\n');
+                    const firstLine = lines[0].trim();
+                    if (!firstLine.startsWith('<') || !firstLine.endsWith('>')) { alert('格式错误：第一行必须以<开头并以>结尾'); return; }
+                    const bookName = firstLine.slice(1, -1);
+                    if (!/^[a-zA-Z0-9\u4e00-\u9fa5\s]+$/.test(bookName)) { alert('词库名称只能包含字母、数字、中文和空格'); return; }
+                    const content = lines.slice(1).join('\n');
+                    const processedContent = content.split('\n').map(line => line.replace(/[^a-zA-Z]/g, '').toLowerCase()).filter(word => word.length > 0).join('|') + '|';
+                    const result = await window.electronAPI.addDictionary(bookName, processedContent);
+                    if (result === 200) { await refreshData(); setShowUrlModal(false); }
+                } catch (error) { alert('获取网络词库失败：' + error.message); }
+            }} />}
+        </div>
+    );
+}
+
+// --- Modal Components (Unchanged) ---
+function AddDictionaryModal({ onClose, onAdd }) {
+    const [name, setName] = useState('');
+    const [content, setContent] = useState('');
+    const handlePaste = async () => { try { const text = await navigator.clipboard.readText(); setContent(text); } catch (err) { alert('无法访问剪贴板'); } };
+    const handleSubmit = () => {
+        if (!name.trim() || !/^[a-zA-Z0-9\u4e00-\u9fa5]+$/.test(name)) { alert('词库名称不合法'); return; }
+        if (!content.trim()) { alert('请输入单词内容'); return; }
+        onAdd(name, content);
+    };
+    return (
+        <div className="modal-backdrop" onClick={onClose}>
+            <div className="modal" onClick={(e) => e.stopPropagation()}>
+                <h3 className="modal-header">添加新词库</h3>
+                <input type="text" className="modal-input" placeholder="词库名称" value={name} onChange={(e) => setName(e.target.value)} />
+                <div className="input-wrapper">
+                    <textarea className="modal-textarea" placeholder="输入单词，每行一个..." value={content} onChange={(e) => setContent(e.target.value)} />
+                    <button className="paste-button" onClick={handlePaste}>粘贴</button>
+                </div>
+                <div className="modal-actions">
+                    <button className="action-button-secondary" onClick={onClose}>取消</button>
+                    <button className="action-button-primary" onClick={handleSubmit}>应用</button>
+                </div>
+            </div>
+        </div>
+    );
+}
+function EditDictionaryModal({ dictionary, onClose, onSave }) {
+    const [name, setName] = useState(dictionary.book_name);
+    const [content, setContent] = useState('');
+    useEffect(() => {
+        const wordIds = dictionary.book_content.split('|').filter(id => id);
+        const words = wordIds.map(id => cacheManager.getWordById(parseInt(id))?.word).filter(Boolean);
+        setContent(words.join('\n'));
+    }, [dictionary]);
+    const handleSubmit = () => {
+        if (!name.trim() || !/^[a-zA-Z0-9\u4e00-\u9fa5]+$/.test(name)) { alert('词库名称不合法'); return; }
+        onSave(dictionary.book_id, name, content);
+    };
+    return (
+        <div className="modal-backdrop" onClick={onClose}>
+            <div className="modal" onClick={(e) => e.stopPropagation()}>
+                <h3 className="modal-header">编辑词库</h3>
+                <input type="text" className="modal-input" placeholder="词库名称" value={name} onChange={(e) => setName(e.target.value)} />
+                <textarea className="modal-textarea" placeholder="输入单词，每行一个..." value={content} onChange={(e) => setContent(e.target.value)} />
+                <div className="modal-actions">
+                    <button className="action-button-secondary" onClick={onClose}>取消</button>
+                    <button className="action-button-primary" onClick={handleSubmit}>应用</button>
+                </div>
+            </div>
+        </div>
+    );
+}
+function UrlDictionaryModal({ onClose, onAdd }) {
+    const [url, setUrl] = useState('');
+    const handleSubmit = () => { if (url.trim()) onAdd(url); else alert('请输入网址'); };
+    return (
+        <div className="modal-backdrop" onClick={onClose}>
+            <div className="modal" onClick={(e) => e.stopPropagation()}>
+                <h3 className="modal-header">通过网络添加词库</h3>
+                <input type="text" className="modal-input" placeholder="输入词库网址..." value={url} onChange={(e) => setUrl(e.target.value)} />
+                <p style={{ fontSize: '14px', color: 'var(--text-secondary)', marginTop: '10px' }}>请输入RAW格式的纯文本网址，文件大小不超过1MB</p>
+                <div className="modal-actions">
+                    <button className="action-button-secondary" onClick={onClose}>取消</button>
+                    <button className="action-button-primary" onClick={handleSubmit}>获取</button>
+                </div>
+            </div>
+        </div>
+    );
+}
+
+// --- Video Page (Unchanged) ---
+function VideoPage({ config, onUpdateConfig, videoState, onVideoStateUpdate }) {
+    const videoRef = useRef(null);
+    const [currentSubtitle, setCurrentSubtitle] = useState('');
+    const [isPlaying, setIsPlaying] = useState(false);
+    const [currentTime, setCurrentTime] = useState(videoState.progress);
+
+    const parseSrt = (srtText) => {
+        const timeToSeconds = (time) => { const parts = time.split(/[:,]/); return parseInt(parts[0]) * 3600 + parseInt(parts[1]) * 60 + parseInt(parts[2]) + parseInt(parts[3]) / 1000; };
+        return srtText.trim().split(/\n\s*\n/).map(block => {
+            const lines = block.split('\n');
+            if (lines.length < 2) return null;
+            const timeMatch = lines[1].match(/(\d{2}:\d{2}:\d{2},\d{3})\s*-->\s*(\d{2}:\d{2}:\d{2},\d{3})/);
+            if (!timeMatch) return null;
+            return { startTime: timeToSeconds(timeMatch[1]), endTime: timeToSeconds(timeMatch[2]), text: lines.slice(2).join('\n') };
+        }).filter(Boolean);
+    };
+
+    const handleSelectVideo = async () => {
+        const result = await window.electronAPI.selectFile({ filters: [{ name: 'Videos', extensions: ['mp4', 'webm', 'mkv', 'ogv', 'ogg'] }] });
+        if (result?.filePath) onVideoStateUpdate({ src: `file://${result.filePath}`, progress: 0, duration: 0 });
+        else if (result?.error) alert(`选择文件时出错: ${result.error}`);
+    };
+
+    const handleSelectSrt = async () => {
+        const result = await window.electronAPI.selectFile({ filters: [{ name: 'Subtitles', extensions: ['srt'] }], readAsText: true });
+        if (result?.content) onVideoStateUpdate({ subtitles: parseSrt(result.content) });
+        else if (result?.error) alert(`无法读取字幕文件: ${result.error}`);
+    };
+
+    const processSubtitleText = useCallback(async (text) => {
+        const cleanedText = text.toLowerCase().replace(/[^a-z]/g, ' ').trim();
+        const words = cleanedText.split(/\s+/).filter(Boolean);
+        if (words.length === 0) { onVideoStateUpdate({ sidebarWords: [] }); return; }
+        const inputString = words.join('|') + '|';
+        const result = await window.electronAPI.processWordsLemmatization(inputString);
+        if (result === 'zero_word' || result === 'unknown_error') {
+            onVideoStateUpdate({ sidebarWords: [] });
+            if (result === 'unknown_error') console.error("Error from processWordsWithLemmatization: unknown_error");
+        } else {
+            const ids = result.split('|').filter(Boolean).map(Number);
+            const wordData = ids.map(id => ({ id, word: cacheManager.getWordById(id)?.word || 'Unknown', translation: cacheManager.getTranslation(id) || '暂无释义' }));
+            onVideoStateUpdate({ sidebarWords: wordData });
+        }
+    }, [onVideoStateUpdate]);
+
+    useEffect(() => {
+        const video = videoRef.current;
+        if (video && videoState.src && video.src !== videoState.src) video.load();
+        if (video && videoState.progress > 0 && Math.abs(video.currentTime - videoState.progress) > 1) video.currentTime = videoState.progress;
+    }, [videoState.src]);
+
+    useEffect(() => {
+        const video = videoRef.current; if (!video) return;
+        const onTimeUpdate = () => {
+            const time = video.currentTime;
+            setCurrentTime(time);
+            const activeSub = videoState.subtitles.find(s => time >= s.startTime && time <= s.endTime);
+            const newSubtitleText = activeSub ? activeSub.text : '';
+            if (newSubtitleText !== currentSubtitle) { setCurrentSubtitle(newSubtitleText); processSubtitleText(newSubtitleText); }
+        };
+        const onLoadedMetadata = () => { onVideoStateUpdate({ duration: video.duration }); if (videoState.progress) video.currentTime = videoState.progress; };
+        const onPlay = () => setIsPlaying(true);
+        const onPause = () => { setIsPlaying(false); onVideoStateUpdate({ progress: video.currentTime }); };
+        video.addEventListener('timeupdate', onTimeUpdate); video.addEventListener('loadedmetadata', onLoadedMetadata);
+        video.addEventListener('play', onPlay); video.addEventListener('pause', onPause);
+        return () => {
+            video.removeEventListener('timeupdate', onTimeUpdate); video.removeEventListener('loadedmetadata', onLoadedMetadata);
+            video.removeEventListener('play', onPlay); video.removeEventListener('pause', onPause);
+            if (video.currentTime) onVideoStateUpdate({ progress: video.currentTime });
+        };
+    }, [videoState.src, videoState.subtitles, currentSubtitle, processSubtitleText, onVideoStateUpdate]);
+
+    useEffect(() => {
+        const handleKeyDown = (e) => {
+            const video = videoRef.current; if (!video) return;
+            if (document.activeElement.tagName === 'INPUT' || document.activeElement.tagName === 'SELECT') return;
+            const key = e.key.toLowerCase(); let keyHandled = false;
+            if (key === 'arrowright') { video.currentTime += 1; keyHandled = true; } 
+            else if (key === 'arrowleft') { video.currentTime -= 1; keyHandled = true; } 
+            else if (key === 'l') { video.currentTime += 10; keyHandled = true; } 
+            else if (key === 'j') { video.currentTime -= 10; keyHandled = true; } 
+            else if (key === 'k' || key === ' ') { togglePlayPause(); keyHandled = true; }
+            if (keyHandled) e.preventDefault();
+        };
+        window.addEventListener('keydown', handleKeyDown);
+        return () => window.removeEventListener('keydown', handleKeyDown);
+    }, [videoState.src]);
+
+    useEffect(() => {
+        const video = videoRef.current; if (!video) return;
+        const handleError = (e) => {
+            const error = e.target.error; console.error('Video Error:', error.code, error.message);
+            if (error.code === 3 || error.code === 4) {
+                alert('视频文件内部损坏或编码格式不支持，请尝试转换格式后重新选择。');
+                onVideoStateUpdate({ src: null, subtitles: [], sidebarWords: [], progress: 0, duration: 0 });
+            }
+        };
+        video.addEventListener('error', handleError);
+        return () => { if (video) video.removeEventListener('error', handleError); };
+    }, [videoState.src, onVideoStateUpdate]);
+
+    const togglePlayPause = useCallback(() => { const video = videoRef.current; if (video) video.paused ? video.play() : video.pause(); }, []);
+    const handleProgressChange = (e) => { const newTime = parseFloat(e.target.value); setCurrentTime(newTime); videoRef.current.currentTime = newTime; };
+    const formatTime = (time) => { if (isNaN(time) || time === 0) return '00:00'; const m = Math.floor(time / 60); const s = Math.floor(time % 60); return `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`; };
+
+    return (
+        <div className="video-page-layout">
+            <div className="video-main-panel">
+                <div className="video-player-wrapper">
+                    {videoState.src ? (<video key={videoState.src} ref={videoRef} src={videoState.src}></video>) : (<div className="video-placeholder"><h2>请选择视频文件</h2><button onClick={handleSelectVideo}>选择视频</button></div>)}
+                </div>
+                {videoState.src && (
+                    <>
+                        <div className="subtitle-overlay"><span className="subtitle-text" style={{ fontSize: `${config.subtitle_scale || 100}%`, backgroundColor: `rgba(0, 0, 0, ${(config.subtitle_opacity || 100) / 100})` }}>{currentSubtitle}</span></div>
+                        <div className="video-controls">
+                            <button onClick={togglePlayPause}>{isPlaying ? '❚❚' : '►'}</button>
+                            <span>{formatTime(currentTime)}</span>
+                            <input type="range" min="0" max={videoState.duration || 0} value={currentTime} onChange={handleProgressChange} />
+                            <span>{formatTime(videoState.duration)}</span>
+                        </div>
+                    </>
+                )}
+            </div>
+            <div className="video-sidebar-panel">
+                <div className="sidebar-word-section">
+                    <h3>当前字幕单词</h3>
+                    <div className="sidebar-word-list">
+                        {videoState.sidebarWords.length > 0 ? videoState.sidebarWords.map(item => (
+                            <div key={item.id} className="sidebar-word-item"><span className="word">{item.word}: </span><span className="translation">{item.translation}</span></div>
+                        )) : <p>暂无单词</p>}
+                    </div>
+                </div>
+                <div className="sidebar-settings-section">
+                    <h3>设置</h3>
+                    <div className="sidebar-controls">
+                        <div className="control-group"><div className="control-group-buttons"><button onClick={handleSelectVideo} className="sidebar-action-button">更换视频</button><button onClick={handleSelectSrt} className="sidebar-action-button">选择字幕</button></div></div>
+                        <div className="control-group"><label htmlFor="playbackRate">播放速度</label><select id="playbackRate" defaultValue="1" onChange={e => { if(videoRef.current) videoRef.current.playbackRate = parseFloat(e.target.value)}}><option value="0.5">0.5x</option><option value="0.75">0.75x</option><option value="1">1x (正常)</option><option value="1.25">1.25x</option><option value="1.5">1.5x</option><option value="2">2x</option></select></div>
+                        <div className="control-group"><label htmlFor="subtitleScale">字幕大小: {config.subtitle_scale || 100}%</label><input id="subtitleScale" type="range" min="50" max="250" value={config.subtitle_scale || 100} onChange={e => onUpdateConfig({ subtitle_scale: e.target.value })} /></div>
+                        <div className="control-group"><label htmlFor="subtitleOpacity">背景不透明度: {config.subtitle_opacity || 100}%</label><input id="subtitleOpacity" type="range" min="0" max="100" value={config.subtitle_opacity || 100} onChange={e => onUpdateConfig({ subtitle_opacity: e.target.value })} /></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    );
+}
+
+// --- Learn Page (Unchanged) ---
+function LearnPage({ config, onUpdateConfig }) {
+    const [currentWordId, setCurrentWordId] = useState(null);
+    const [showBack, setShowBack] = useState(false);
+    const [remainingCount, setRemainingCount] = useState(0);
+    const [loading, setLoading] = useState(true);
+    const [noTasks, setNoTasks] = useState(false);
+    const [data, setData] = useState({ translations: new Map(), sentences: new Map(), translatedSentences: new Map() });
+    const [cardState, setCardState] = useState('front');
+    const [searchTerm, setSearchTerm] = useState('');
+    const [searchResults, setSearchResults] = useState([]);
+    const [isSearchFocused, setIsSearchFocused] = useState(false);
+    const searchInputRef = useRef(null);
+    const posList = useMemo(() => config.pos_content?.split('|').filter(p => p) || [], [config.pos_content]);
+
+    const loadWordData = useCallback(async () => {
+        setLoading(true);
+        const wordId = await window.electronAPI.whichNowId();
+        if (wordId === 999999) setNoTasks(true);
+        else { setNoTasks(false); setCurrentWordId(wordId); setCardState('front'); }
+        setLoading(false);
+    }, []);
+
+    const updateStatus = useCallback(async () => {
+        const [count, backButtonStatus] = await Promise.all([window.electronAPI.getCount(), window.electronAPI.showBackButton()]);
+        setRemainingCount(count);
+        setShowBack(backButtonStatus === 200);
+    }, []);
+    
+    const loadCsvData = useCallback(async () => {
+        if (!config.translation_language) return;
+        const [t, s, ts] = await Promise.all([
+            window.electronAPI.loadCsv(`${config.translation_language}_foundation.csv`),
+            window.electronAPI.loadCsv('sentence.csv'),
+            window.electronAPI.loadCsv(`${config.translation_language}_sentence.csv`)
+        ]);
+        const createMap = (d, single = false) => new Map(d.map(r => [parseInt(r[0]), single ? r[1] : r.slice(1)]));
+        setData({ translations: createMap(t, true), sentences: createMap(s), translatedSentences: createMap(ts) });
+    }, [config.translation_language]);
+
+    useEffect(() => { loadWordData(); updateStatus(); loadCsvData(); }, [loadWordData, updateStatus, loadCsvData]);
+
+    const currentWord = useMemo(() => cacheManager.getWordById(currentWordId), [currentWordId]);
+
+    const handleAction = async (action) => {
+        if (!currentWordId || cardState === 'front') return;
+        speechManager.cancel();
+        await window.electronAPI.inputABCDo(action, currentWordId);
+        await loadWordData(); await updateStatus();
+    };
+
+    const handleBack = async () => {
+        if (!showBack) return;
+        speechManager.cancel();
+        const result = await window.electronAPI.executeBackButton();
+        if (result !== 904904) { await loadWordData(); await updateStatus(); }
+    };
+    
+    const flipCard = () => {
+        if (cardState === 'front') {
+            setCardState('back');
+            const repeatCount = parseInt(config.number_of_readings, 10) || 1;
+            const textToSpeak = Array(repeatCount).fill(currentWord?.word).join(' ');
+            speechManager.speak(textToSpeak, config.speech_accent);
+        }
+    };
+
+    useEffect(() => {
+        const handleKeyDown = (e) => {
+            if (isSearchFocused) {
+                if (e.key === 'Enter') { e.preventDefault(); if (searchTerm.trim() && !searchResults.length) handleSearch(); else searchInputRef.current?.blur(); }
+                return;
+            }
+            if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
+            const key = e.key.toLowerCase();
+            if (cardState === 'back') {
+                if (key === config.recognize) handleAction('A');
+                else if (key === config.blur) handleAction('B');
+                else if (key === config.forget) handleAction('C');
+            }
+            if (key === config.click_show_translation) flipCard();
+            if (key === config.click_back) handleBack();
+            if (e.key === 'Enter') { e.preventDefault(); searchInputRef.current?.focus(); }
+        };
+        window.addEventListener('keydown', handleKeyDown);
+        return () => window.removeEventListener('keydown', handleKeyDown);
+    }, [isSearchFocused, config, cardState, showBack, searchTerm, searchResults]);
+
+    const handleSearch = () => {
+        if (!searchTerm.trim()) { setSearchResults([]); return; }
+        const lowerSearchTerm = searchTerm.toLowerCase();
+        const results = cacheManager.foundation.map(item => {
+            const translation = data.translations.get(item.id) || '';
+            const lowerWord = item.word.toLowerCase();
+            const lowerTranslation = translation.toLowerCase();
+            let score = 0;
+            if (lowerWord === lowerSearchTerm || lowerTranslation === lowerSearchTerm) score = 10;
+            else if (lowerWord.startsWith(lowerSearchTerm)) score = 5;
+            else if (lowerTranslation.startsWith(lowerSearchTerm)) score = 4;
+            else if (lowerWord.includes(lowerSearchTerm)) score = 2;
+            else if (translation && lowerTranslation.includes(lowerSearchTerm)) score = 1;
+            return { ...item, translation, score };
+        }).filter(item => item.score > 0).sort((a, b) => b.score - a.score);
+        setSearchResults(results.slice(0, 50));
+    };
+
+    if (loading) return <div className="page-container"><div className="loading-message">加载中...</div></div>;
+    if (noTasks) return <div className="page-container"><div className="no-tasks-message">当下没有待学习的任务</div></div>;
+    if (!currentWord) return null;
+
+    const learnColor = `#${config.learn_color || '1F977E'}`;
+    const gradient = `linear-gradient(135deg, ${learnColor}, color-mix(in srgb, ${learnColor} 80%, black))`;
+    const sentences = data.sentences.get(currentWordId) || [];
+    const translatedSents = data.translatedSentences.get(currentWordId) || [];
+
+    return (
+        <div className="learn-page-layout">
+            <div className="learn-main-panel">
+                <div className="flashcard-container">
+                    <div className="flashcard-header" style={{ background: gradient }}>
+                        <span className="status-bar-header">当前还剩余 {remainingCount}个 未学习</span>
+                        {showBack && (<button className="back-button-header" onClick={handleBack}>返回 ({config.click_back?.toUpperCase()})</button>)}
+                        <h1>{currentWord.word}</h1>
+                        <div className="ipa-container">
+                            {currentWord.ipa !== 'fail_generate_pos' && `/${currentWord.ipa}/`}
+                            <button className="speaker-button" onClick={(e) => { e.stopPropagation(); speechManager.speak(currentWord.word, config.speech_accent); }}>🔊</button>
+                        </div>
+                    </div>
+                    <div className="flashcard-body" onClick={cardState === 'front' ? flipCard : null}>
+                        {cardState === 'front' ? (
+                            <div className="click-to-reveal-wrapper"><span>点击或按 [{config.click_show_translation?.toUpperCase()}] 显示释义</span></div>
+                        ) : (
+                            <div className="revealed-content">
+                                <div className="revealed-scroll-content">
+                                    <div className="translation-section"><strong>释义：</strong><RichTextDisplay text={data.translations.get(currentWordId) || '暂无'} posList={posList} /></div>
+                                    {sentences.length > 0 && (
+                                        <div className="sentence-section"><strong>例句：</strong>
+                                            {sentences.map((s, i) => (
+                                                <div key={i} className="sentence-pair">
+                                                    <div className="eng-sentence"><RichTextDisplay text={s} posList={[]} /></div>
+                                                    {translatedSents[i] && <div className="chn-sentence"><RichTextDisplay text={translatedSents[i]} posList={[]} /></div>}
+                                                </div>
+                                            ))}
+                                        </div>
+                                    )}
+                                </div>
+                                <div className="action-buttons">
+                                    <button className="action-button recognize" onClick={(e) => {e.stopPropagation(); handleAction('A');}}>认识 ({config.recognize?.toUpperCase()})</button>
+                                    <button className="action-button blur" onClick={(e) => {e.stopPropagation(); handleAction('B');}}>模糊 ({config.blur?.toUpperCase()})</button>
+                                    <button className="action-button forget" onClick={(e) => {e.stopPropagation(); handleAction('C');}}>忘记 ({config.forget?.toUpperCase()})</button>
+                                </div>
+                            </div>
+                        )}
+                    </div>
+                </div>
+            </div>
+            <div className="learn-search-panel">
+                <div className="search-input-wrapper">
+                    <input ref={searchInputRef} id="search-input" type="text" placeholder="按回车进入/退出搜索" value={searchTerm}
+                        onChange={(e) => setSearchTerm(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter') handleSearch(); }}
+                        onFocus={() => setIsSearchFocused(true)} onBlur={() => setIsSearchFocused(false)} />
+                </div>
+                <div className="search-results">
+                    {searchResults.map(item => (
+                        <div key={item.id} className="search-result-item">
+                            <div><span className="word">{item.word}</span>{item.ipa !== 'fail_generate_pos' && <span className="ipa">/{item.ipa}/</span>}</div>
+                            <div className="translation"><RichTextDisplay text={item.translation} posList={posList} /></div>
+                        </div>
+                    ))}
+                </div>
+            </div>
+        </div>
+    );
+}
+
+// --- UPDATED Custom Color Picker Modal ---
+function ColorPickerModal({ initialColor, onClose, onApply }) {
+    const hexToRgb = (hex) => {
+        const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
+        return result ? { r: parseInt(result[1], 16), g: parseInt(result[2], 16), b: parseInt(result[3], 16) } : null;
+    };
+    const rgbToHsv = ({ r, g, b }) => {
+        r /= 255; g /= 255; b /= 255;
+        const max = Math.max(r, g, b), min = Math.min(r, g, b);
+        let h, s, v = max;
+        const d = max - min;
+        s = max === 0 ? 0 : d / max;
+        if (max === min) { h = 0; } 
+        else {
+            switch (max) {
+                case r: h = (g - b) / d + (g < b ? 6 : 0); break;
+                case g: h = (b - r) / d + 2; break;
+                case b: h = (r - g) / d + 4; break;
+            }
+            h /= 6;
+        }
+        return { h: h * 360, s, v };
+    };
+    const hsvToRgb = ({ h, s, v }) => {
+        let r, g, b;
+        const i = Math.floor(h / 60) % 6;
+        const f = h / 60 - i;
+        const p = v * (1 - s);
+        const q = v * (1 - f * s);
+        const t = v * (1 - (1 - f) * s);
+        switch (i) {
+            case 0: r = v; g = t; b = p; break;
+            case 1: r = q; g = v; b = p; break;
+            case 2: r = p; g = v; b = t; break;
+            case 3: r = p; g = q; b = v; break;
+            case 4: r = t; g = p; b = v; break;
+            case 5: r = v; g = p; b = q; break;
+        }
+        return { r: Math.round(r * 255), g: Math.round(g * 255), b: Math.round(b * 255) };
+    };
+    const rgbToHex = ({ r, g, b }) => [r, g, b].map(x => x.toString(16).padStart(2, '0')).join('').toUpperCase();
+
+    const [hsv, setHsv] = useState(() => rgbToHsv(hexToRgb(initialColor)));
+    const [rgb, setRgb] = useState(() => hexToRgb(initialColor));
+    const [isDraggingColor, setIsDraggingColor] = useState(false);
+    const [isDraggingHue, setIsDraggingHue] = useState(false);
+    
+    const colorCanvasRef = useRef(null);
+    const hueCanvasRef = useRef(null);
+    const colorWrapperRef = useRef(null);
+    const hueWrapperRef = useRef(null);
+    const canvasSize = 250;
+
+    useEffect(() => {
+        const newRgb = hsvToRgb(hsv);
+        setRgb(newRgb);
+    }, [hsv]);
+
+    const drawColorCanvas = useCallback(() => {
+        if (!colorCanvasRef.current) return;
+        const ctx = colorCanvasRef.current.getContext('2d');
+        const { h } = hsv;
+        ctx.fillStyle = `hsl(${h}, 100%, 50%)`;
+        ctx.fillRect(0, 0, canvasSize, canvasSize);
+        const whiteGrad = ctx.createLinearGradient(0, 0, canvasSize, 0);
+        whiteGrad.addColorStop(0, 'rgba(255,255,255,1)');
+        whiteGrad.addColorStop(1, 'rgba(255,255,255,0)');
+        ctx.fillStyle = whiteGrad;
+        ctx.fillRect(0, 0, canvasSize, canvasSize);
+        const blackGrad = ctx.createLinearGradient(0, 0, 0, canvasSize);
+        blackGrad.addColorStop(0, 'rgba(0,0,0,0)');
+        blackGrad.addColorStop(1, 'rgba(0,0,0,1)');
+        ctx.fillStyle = blackGrad;
+        ctx.fillRect(0, 0, canvasSize, canvasSize);
+    }, [hsv.h]);
+
+    const drawHueCanvas = useCallback(() => {
+        if (!hueCanvasRef.current) return;
+        const ctx = hueCanvasRef.current.getContext('2d');
+        const grad = ctx.createLinearGradient(0, 0, 0, canvasSize);
+        for (let i = 0; i <= 6; i++) {
+            grad.addColorStop(i / 6, `hsl(${i * 60}, 100%, 50%)`);
+        }
+        ctx.fillStyle = grad;
+        ctx.fillRect(0, 0, 25, canvasSize);
+    }, []);
+
+    useEffect(() => {
+        drawColorCanvas();
+        drawHueCanvas();
+    }, [drawColorCanvas, drawHueCanvas]);
+
+    const handleCanvasInteraction = (e, type) => {
+        const rect = e.currentTarget.getBoundingClientRect();
+        const x = Math.max(0, Math.min(type === 'color' ? canvasSize : 25, e.clientX - rect.left));
+        const y = Math.max(0, Math.min(canvasSize, e.clientY - rect.top));
+        
+        if (type === 'color') {
+            setHsv(prev => ({ ...prev, s: x / canvasSize, v: 1 - (y / canvasSize) }));
+        } else if (type === 'hue') {
+            setHsv(prev => ({ ...prev, h: (y / canvasSize) * 360 }));
+        }
+    };
+    
+    const handleMouseMove = useCallback((e) => {
+        if (isDraggingColor && colorWrapperRef.current) {
+            const rect = colorWrapperRef.current.getBoundingClientRect();
+            const x = Math.max(0, Math.min(canvasSize, e.clientX - rect.left));
+            const y = Math.max(0, Math.min(canvasSize, e.clientY - rect.top));
+            setHsv(prev => ({ ...prev, s: x / canvasSize, v: 1 - (y / canvasSize) }));
+        }
+        if (isDraggingHue && hueWrapperRef.current) {
+            const rect = hueWrapperRef.current.getBoundingClientRect();
+            const y = Math.max(0, Math.min(canvasSize, e.clientY - rect.top));
+            setHsv(prev => ({ ...prev, h: (y / canvasSize) * 360 }));
+        }
+    }, [isDraggingColor, isDraggingHue]);
+
+    const handleMouseUp = useCallback(() => {
+        setIsDraggingColor(false);
+        setIsDraggingHue(false);
+    }, []);
+
+    useEffect(() => {
+        window.addEventListener('mousemove', handleMouseMove);
+        window.addEventListener('mouseup', handleMouseUp);
+        return () => {
+            window.removeEventListener('mousemove', handleMouseMove);
+            window.removeEventListener('mouseup', handleMouseUp);
+        };
+    }, [handleMouseMove, handleMouseUp]);
+
+    const handleRgbChange = (channel, value) => {
+        const numValue = Math.max(0, Math.min(255, parseInt(value, 10) || 0));
+        const newRgb = { ...rgb, [channel]: numValue };
+        setRgb(newRgb);
+        setHsv(rgbToHsv(newRgb));
+    };
+
+    const finalHex = rgbToHex(rgb);
+
+    return (
+        <div className="modal-backdrop" onClick={onClose}>
+            <div className="modal" onClick={e => e.stopPropagation()} style={{minWidth: 'auto'}}>
+                <h3 className="modal-header">选择颜色</h3>
+                <div className="color-picker-modal-content">
+                    <div className="color-picker-main">
+                        <div ref={colorWrapperRef} className="color-picker-canvas-wrapper" onMouseDown={e => { setIsDraggingColor(true); handleCanvasInteraction(e, 'color'); }}>
+                            <canvas ref={colorCanvasRef} width={canvasSize} height={canvasSize} className="color-picker-canvas" />
+                            <div className="color-picker-marker" style={{ left: `${hsv.s * 100}%`, top: `${(1 - hsv.v) * 100}%` }} />
+                        </div>
+                    </div>
+                    <div className="color-picker-controls">
+                        <div ref={hueWrapperRef} className="color-picker-canvas-wrapper" onMouseDown={e => { setIsDraggingHue(true); handleCanvasInteraction(e, 'hue'); }}>
+                            <canvas ref={hueCanvasRef} width={25} height={canvasSize} className="color-picker-canvas" />
+                            <div className="color-picker-marker" style={{ left: '50%', top: `${(hsv.h / 360) * 100}%` }} />
+                        </div>
+                    </div>
+                    <div className="color-picker-controls">
+                        <div className="color-picker-preview" style={{ backgroundColor: `#${finalHex}` }}></div>
+                        <div className="color-picker-inputs">
+                            {['r', 'g', 'b'].map(channel => (
+                                <div key={channel} className="color-picker-input-group">
+                                    <label>{channel.toUpperCase()}</label>
+                                    <input type="number" value={rgb[channel]} onChange={e => handleRgbChange(channel, e.target.value)} />
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+                </div>
+                <div className="modal-actions">
+                    <button className="action-button-secondary" onClick={onClose}>取消</button>
+                    <button className="action-button-primary" onClick={() => onApply(finalHex)}>应用</button>
+                </div>
+            </div>
+        </div>
+    );
+}
+
+// --- Settings Page Component (Unchanged) ---
+function SettingsPage({ config, onUpdateConfig }) {
+    const [tomorrowCount, setTomorrowCount] = useState(null);
+    const [showLemmatizer, setShowLemmatizer] = useState(false);
+    const [showTimezone, setShowTimezone] = useState(false);
+    const [showTutorial, setShowTutorial] = useState(false);
+    const [showColorPicker, setShowColorPicker] = useState(false);
+    const [isLoading, setIsLoading] = useState(false);
+    const [loadingText, setLoadingText] = useState('');
+
+    useEffect(() => {
+        const fetchTomorrowCount = async () => {
+            const count = await window.electronAPI.view_number_of_tomorrow();
+            setTomorrowCount(count);
+        };
+        fetchTomorrowCount();
+    }, []);
+
+    const handleUpdate = (key, value) => {
+        onUpdateConfig({ ...config, [key]: value });
+    };
+
+    const handleResetApp = async () => {
+        if (confirm('该操作将重置当前的学习进度和所有设置，确定要继续吗？')) {
+            setIsLoading(true); setLoadingText('正在重置软件...');
+            const result = await window.electronAPI.reset_app();
+            if (result === 200) {
+                alert('重置成功！应用即将重启。');
+                window.location.reload();
+            } else {
+                alert('重置失败，请查看日志。');
+            }
+            setIsLoading(false);
+        }
+    };
+
+    const handleImport = async () => {
+        if (confirm('该操作将覆盖当前的学习进度，确定要导入吗？')) {
+            setIsLoading(true);
+            try {
+                setLoadingText('准备导入环境...');
+                if (await window.electronAPI.rebuild_reserve_folder() !== 200) throw new Error('无法清理临时目录');
+                
+                setLoadingText('请选择备份文件...');
+                const fileResult = await window.electronAPI.import_backup_file();
+                if (!fileResult.success) throw new Error('文件选择或复制失败: ' + fileResult.message);
+
+                setLoadingText('正在校验文件...');
+                if (await window.electronAPI.verify_and_uncompress() !== 200) throw new Error('备份文件校验失败');
+
+                setLoadingText('正在恢复数据 (1/4)...');
+                if (await window.electronAPI.reserve_convey_config_json() !== 200) throw new Error('恢复配置文件失败');
+                setLoadingText('正在恢复数据 (2/4)...');
+                if (await window.electronAPI.reserve_convey_self_dictionary_db() !== 200) throw new Error('恢复词典数据失败');
+                setLoadingText('正在恢复数据 (3/4)...');
+                if (await window.electronAPI.reserve_convey_self_now_db() !== 200) throw new Error('恢复学习进度失败');
+                setLoadingText('正在恢复数据 (4/4)...');
+                if (await window.electronAPI.reserve_convey_twenty_thousand_db() !== 200) throw new Error('恢复时间数据失败');
+                
+                setLoadingText('清理临时文件...');
+                await window.electronAPI.rebuild_reserve_folder();
+
+                alert('导入成功！应用即将重启以应用更改。');
+                window.location.reload();
+            } catch (error) {
+                alert(`导入失败: ${error.message}`);
+            } finally {
+                setIsLoading(false);
+            }
+        }
+    };
+
+    const handleExport = async () => {
+        setIsLoading(true);
+        try {
+            setLoadingText('准备导出环境...');
+            if (await window.electronAPI.rebuild_reserve_folder() !== 200) throw new Error('无法清理临时目录');
+            
+            setLoadingText('正在备份数据 (1/4)...');
+            if (await window.electronAPI.convey_config_json() !== 200) throw new Error('备份配置文件失败');
+            setLoadingText('正在备份数据 (2/4)...');
+            if (await window.electronAPI.convey_self_dictionary_db() !== 200) throw new Error('备份词典数据失败');
+            setLoadingText('正在备份数据 (3/4)...');
+            if (await window.electronAPI.convey_self_now_db() !== 200) throw new Error('备份学习进度失败');
+            setLoadingText('正在备份数据 (4/4)...');
+            if (await window.electronAPI.convey_twenty_thousand_db() !== 200) throw new Error('备份时间数据失败');
+
+            setLoadingText('正在压缩备份...');
+            if (await window.electronAPI.four_compress() !== 200) throw new Error('压缩备份失败');
+
+            setLoadingText('正在导出文件到桌面...');
+            const exportResult = await window.electronAPI.export_backup_file();
+            if (!exportResult.success) throw new Error('导出文件失败: ' + exportResult.message);
+
+            setLoadingText('清理临时文件...');
+            await window.electronAPI.rebuild_reserve_folder();
+
+            alert(`导出成功！文件已保存到桌面: ${exportResult.path}`);
+        } catch (error) {
+            alert(`导出失败: ${error.message}`);
+        } finally {
+            setIsLoading(false);
+        }
+    };
+    
+    const hotkeyOptions = ['recognize', 'blur', 'forget', 'click_show_translation', 'click_back'];
+    const allPossibleKeys = [...'abcdefghijklmnopqrstuvwxyz0123456789'];
+
+    return (
+        <div className="settings-page">
+            {isLoading && <div className="loading-overlay"><div className="spinner"></div><p>{loadingText}</p></div>}
+            <h1 className="settings-header">设置</h1>
+
+            <div className="settings-section">
+                <h2 className="settings-section-header">学习状态</h2>
+                <div className="settings-item">
+                    <span className="settings-item-label">明日复习</span>
+                    <span className="settings-item-info">
+                        {tomorrowCount === null ? "加载中..." : tomorrowCount === 999999 ? "今天的任务没有学习完成，无法查看" : `明天要复习的数量是 ${tomorrowCount} 个`}
+                    </span>
+                </div>
+                <div className="settings-item">
+                    <span className="settings-item-label">当前时区</span>
+                    <span className="settings-item-info">
+                        {config.two_offset_time === '+00:00' || config.two_offset_time === '-00:00' ? "您当前的时区为UTC时区" : `您当前的时区为 UTC ${config.two_offset_time}`}
+                    </span>
+                </div>
+                <div className="settings-item">
+                    <span className="settings-item-label">每日复习时间</span>
+                    <span className="settings-item-info">
+                        {`您当前的每日复习时间设置为每天的 ${config.three_offset_time.substring(1)}`}
+                    </span>
+                </div>
+            </div>
+
+            <div className="settings-section">
+                <h2 className="settings-section-header">个性化</h2>
+                <div className="settings-item">
+                    <span className="settings-item-label">自动朗读次数</span>
+                    <div className="settings-item-control settings-button-group">
+                        {['1', '2', '3'].map(num => (
+                            <button key={num} className={`btn ${config.number_of_readings === num ? 'active' : ''}`} onClick={() => handleUpdate('number_of_readings', num)}>{num}</button>
+                        ))}
+                    </div>
+                </div>
+                <div className="settings-item">
+                    <span className="settings-item-label">朗读口音</span>
+                    <div className="settings-item-control settings-button-group">
+                        <button className={`btn ${config.speech_accent === 'us' ? 'active' : ''}`} onClick={() => handleUpdate('speech_accent', 'us')}>美音</button>
+                        <button className={`btn ${config.speech_accent === 'gb' ? 'active' : ''}`} onClick={() => handleUpdate('speech_accent', 'gb')}>英音</button>
+                    </div>
+                </div>
+                <div className="settings-item">
+                    <span className="settings-item-label">学习界面颜色</span>
+                    <div className="settings-item-control">
+                        <button className="settings-color-picker-trigger" style={{ backgroundColor: `#${config.learn_color}` }} onClick={() => setShowColorPicker(true)} />
+                    </div>
+                </div>
+            </div>
+            
+            <div className="settings-section">
+                <h2 className="settings-section-header">快捷键</h2>
+                {hotkeyOptions.map(key => {
+                    const currentVal = config[key];
+                    const usedKeys = hotkeyOptions.filter(k => k !== key).map(k => config[k]);
+                    const availableKeys = allPossibleKeys.filter(k => !usedKeys.includes(k));
+                    return (
+                        <div className="settings-item" key={key}>
+                            <span className="settings-item-label">{{recognize: '认识', blur: '模糊', forget: '忘记', click_show_translation: '展示释义', click_back: '返回'}[key]}</span>
+                            <div className="settings-item-control">
+                                <select className="settings-select" value={currentVal} onChange={(e) => handleUpdate(key, e.target.value)}>
+                                    <option value={currentVal}>{currentVal.toUpperCase()}</option>
+                                    {availableKeys.map(k => <option key={k} value={k}>{k.toUpperCase()}</option>)}
+                                </select>
+                            </div>
+                        </div>
+                    );
+                })}
+            </div>
+
+            <div className="settings-section">
+                <h2 className="settings-section-header">工具与数据</h2>
+                <div className="settings-item">
+                    <span className="settings-item-label">词元化工具</span>
+                    <button className="settings-action-button" onClick={() => setShowLemmatizer(true)}>打开</button>
+                </div>
+                <div className="settings-item">
+                    <span className="settings-item-label">修改复习时区</span>
+                    <button className="settings-action-button" onClick={() => setShowTimezone(true)}>修改</button>
+                </div>
+                <div className="settings-item">
+                    <span className="settings-item-label">数据管理</span>
+                    <div className="settings-item-control">
+                        <button className="settings-action-button" onClick={handleImport}>导入进度</button>
+                        <button className="settings-action-button" onClick={handleExport}>导出进度</button>
+                        <button className="settings-action-button danger" onClick={handleResetApp}>重置软件</button>
+                    </div>
+                </div>
+                 <div className="settings-item">
+                    <span className="settings-item-label">介绍本软件</span>
+                    <button className="settings-action-button" onClick={() => setShowTutorial(true)}>查看</button>
+                </div>
+            </div>
+            
+            {showLemmatizer && <LemmatizerModal onClose={() => setShowLemmatizer(false)} />}
+            {showTimezone && <TimezoneModal config={config} onClose={() => setShowTimezone(false)} onApply={async () => {
+                const newConfig = await window.electronAPI.loadConfig();
+                onUpdateConfig(newConfig);
+            }} />}
+            {showTutorial && <TutorialModal onClose={() => setShowTutorial(false)} />}
+            {showColorPicker && <ColorPickerModal initialColor={`#${config.learn_color}`} onClose={() => setShowColorPicker(false)} onApply={(newColor) => {
+                handleUpdate('learn_color', newColor);
+                setShowColorPicker(false);
+            }} />}
+        </div>
+    );
+}
+
+function LemmatizerModal({ onClose }) {
+    const [inputText, setInputText] = useState('');
+    const [outputText, setOutputText] = useState('');
+    const [isProcessing, setIsProcessing] = useState(false);
+    const [optionNewOnly, setOptionNewOnly] = useState(true);
+    const [optionOrder, setOptionOrder] = useState('frequency');
+
+    const handleGenerate = async () => {
+        if (!inputText.trim()) return;
+        setIsProcessing(true);
+        setOutputText('');
+
+        const processedInput = inputText.toLowerCase().replace(/[^a-z\s]/g, ' ').split(/\s+/).filter(Boolean).join('|') + '|';
+        
+        let result = '';
+        if (optionNewOnly && optionOrder === 'frequency') {
+            result = await window.electronAPI.novel_frequency_lemmatization(processedInput);
+        } else if (optionNewOnly && optionOrder === 'sequence') {
+            result = await window.electronAPI.novel_sequence_lemmatization(processedInput);
+        } else if (!optionNewOnly && optionOrder === 'frequency') {
+            result = await window.electronAPI.all_frequency_lemmatization(processedInput);
+        } else { // !optionNewOnly && optionOrder === 'sequence'
+            result = await window.electronAPI.all_sequence_lemmatization(processedInput);
+        }
+        
+        if (result === 'zero_word') {
+            setOutputText('当前没有单词成功 词元化');
+        } else if (result === 'unknown_error') {
+            setOutputText('处理时发生未知错误');
+        } else {
+            setOutputText(result.split('|').filter(Boolean).join('\n'));
+        }
+        setIsProcessing(false);
+    };
+
+    return (
+        <div className="modal-backdrop" onClick={onClose}>
+            <div className="modal" onClick={e => e.stopPropagation()} style={{width: '80vw', height: '80vh'}}>
+                <h3 className="modal-header">词元化工具</h3>
+                <div className="lemmatizer-modal-content">
+                    <div className="lemmatizer-col">
+                        <textarea className="modal-textarea" placeholder="在此处粘贴或输入英文文章..." value={inputText} onChange={e => setInputText(e.target.value)} />
+                    </div>
+                    <div className="lemmatizer-controls">
+                        <fieldset>
+                            <legend>筛选</legend>
+                            <label><input type="radio" name="newOnly" checked={optionNewOnly} onChange={() => setOptionNewOnly(true)} /> 仅生成未在学习序列中的单词</label>
+                            <label><input type="radio" name="newOnly" checked={!optionNewOnly} onChange={() => setOptionNewOnly(false)} /> 生成全部文章单词</label>
+                        </fieldset>
+                        <fieldset>
+                            <legend>排序</legend>
+                            <label><input type="radio" name="order" checked={optionOrder === 'frequency'} onChange={() => setOptionOrder('frequency')} /> 困难优先</label>
+                            <label><input type="radio" name="order" checked={optionOrder === 'sequence'} onChange={() => setOptionOrder('sequence')} /> 文章顺序</label>
+                        </fieldset>
+                        <button className="action-button-primary" onClick={handleGenerate} disabled={isProcessing}>
+                            {isProcessing ? '生成中...' : '生成'}
+                        </button>
+                    </div>
+                    <div className="lemmatizer-col">
+                        <textarea className="modal-textarea" readOnly value={outputText} placeholder="结果将显示在此处..." />
+                    </div>
+                </div>
+                <div className="modal-actions">
+                    <button className="action-button-secondary" onClick={onClose}>关闭</button>
+                </div>
+            </div>
+        </div>
+    );
+}
+
+function TimezoneModal({ config, onClose, onApply }) {
+    const [status, setStatus] = useState('loading');
+    const [selectedTimezone, setSelectedTimezone] = useState(config.two_offset_time);
+    const [selectedDelay, setSelectedDelay] = useState(config.three_offset_time);
+    const [isProcessing, setIsProcessing] = useState(false);
+
+    useEffect(() => {
+        const checkStatus = async () => {
+            const result = await window.electronAPI.check_3_day();
+            if (result === 111) setStatus('ok');
+            else if (result === 222) setStatus('wait');
+            else if (result === 333) setStatus('finish_today');
+            else setStatus('error');
+            
+            const [two, three] = await Promise.all([
+                window.electronAPI.what_two_offset_time(),
+                window.electronAPI.what_three_offset_time()
+            ]);
+            if (two !== 'error') setSelectedTimezone(two);
+            if (three !== 'error') setSelectedDelay(three);
+        };
+        checkStatus();
+    }, []);
+
+    const generateTimeOptions = (start, end, step, prefix = '', showZeroSign = false) => {
+        const options = [];
+        for (let h = start; h <= end; h++) {
+            for (let m = 0; m < 60; m += step) {
+                const sign = h < 0 ? '-' : (h > 0 || (h===0 && showZeroSign)) ? '+' : '';
+                const hour = String(Math.abs(h)).padStart(2, '0');
+                const minute = String(m).padStart(2, '0');
+                options.push(`${sign}${hour}:${minute}`);
+            }
+        }
+        return options;
+    };
+    
+    const timezoneOptions = generateTimeOptions(-12, 14, 15);
+    const delayOptions = generateTimeOptions(0, 23, 15, '+', true);
+
+    const handleApply = async () => {
+        setIsProcessing(true);
+        const result = await window.electronAPI.run_four_time_session(selectedTimezone, selectedDelay);
+        if (result === 'done') {
+            await onApply();
+            alert('时区设置已应用！');
+            onClose();
+        } else {
+            alert(`应用失败: ${result}`);
+        }
+        setIsProcessing(false);
+    };
+
+    const renderContent = () => {
+        switch (status) {
+            case 'loading': return <p>正在检查状态...</p>;
+            case 'wait': return <p>你当前不能调整时区。时区更改每72小时仅允许进行一次。</p>;
+            case 'finish_today': return <p>你当前不能调整时区。只有完成当前的学习后，才允许调整时区。</p>;
+            case 'error': return <p>检查状态时出错，请稍后重试。</p>;
+            case 'ok': return (
+                <Fragment>
+                    <div style={{backgroundColor: 'var(--bg-tertiary)', padding: '15px', borderRadius: '8px', marginBottom: '20px', fontSize: '14px', color: 'var(--text-secondary)'}}>
+                        <p><strong>警告:</strong> 经常切换时区并不推荐，可能会导致计划混乱。</p>
+                        <p>调整时区需要重新组织未来的安排。请在此过程中不要退出应用程序。</p>
+                    </div>
+                    <div className="settings-item">
+                        <label className="settings-item-label">选择时区 (UTC)</label>
+                        <select className="settings-select" value={selectedTimezone} onChange={e => setSelectedTimezone(e.target.value)}>
+                            {timezoneOptions.map(t => <option key={t} value={t}>{t}</option>)}
+                        </select>
+                    </div>
+                    <div className="settings-item">
+                        <label className="settings-item-label">每日复习时间</label>
+                        <select className="settings-select" value={selectedDelay} onChange={e => setSelectedDelay(e.target.value)}>
+                            {delayOptions.map(t => <option key={t} value={t}>{t.substring(1)}</option>)}
+                        </select>
+                    </div>
+                </Fragment>
+            );
+        }
+    };
+
+    return (
+        <div className="modal-backdrop" onClick={onClose}>
+            <div className="modal" onClick={e => e.stopPropagation()}>
+                <h3 className="modal-header">修改复习时区</h3>
+                {isProcessing ? <div style={{textAlign: 'center'}}><div className="spinner" style={{margin: '20px auto'}}></div><p>正在应用设置，请勿关闭应用...</p></div> : renderContent()}
+                <div className="modal-actions">
+                    <button className="action-button-secondary" onClick={onClose} disabled={isProcessing}>取消</button>
+                    {status === 'ok' && <button className="action-button-primary" onClick={handleApply} disabled={isProcessing}>应用</button>}
+                </div>
+            </div>
+        </div>
+    );
+}
+
+function TutorialModal({ onClose }) {
+    return (
+        <div className="modal-backdrop" onClick={onClose}>
+            <div className="modal" onClick={e => e.stopPropagation()} style={{maxWidth: '600px'}}>
+                <h3 className="modal-header">关于</h3>
+<div style={{fontSize: '14px', color: 'var(--text-secondary)', lineHeight: '1.6'}}>
+    <p>当前软件版本：1.0.0</p>
+    <p>https://github.com/globspeech/globspeech</p>
+    <br/>
+    <p>GlobSpeech 支持用户通过添加网络词库。</p>
+    <p>网络词库需遵循特定格式并通过其 Raw 格式的 URL（原始数据链接） 添加。</p>
+    <p>网络词库必须是一个可通过互联网访问的 Raw (原始数据) 链接。</p>
+    <br/>
+    <p>此Raw文件格式要求：</p>
+    <ul style={{paddingLeft: '20px', listStyle: 'disc'}}>
+        <li>第一行：必须包含该词库的 名称，并用英文尖括号 <code>&lt; &gt;</code> 包裹 例如：<code>&lt;tech words&gt;</code></li>
+        <li>后续行：从第二行开始，每行有且仅包含 一个单词。</li>
+        <li>所有单词仅允许使用标准的 26个英文字母（A-Z, a-z）。</li>
+    </ul>
+    <p style={{marginTop: '12px', fontSize: '12px', color: 'var(--text-tertiary)'}}>
+        本软件使用了 compromise.js 进行词元化
+    </p>
+        <p style={{marginTop: '12px', fontSize: '12px', color: 'var(--text-tertiary)'}}>
+        本软件使用了 Tatoeba 例句
+    </p>
+</div>
+                <div className="modal-actions">
+                    <button className="action-button-primary" onClick={onClose}>关闭</button>
+                </div>
+            </div>
+        </div>
+    );
+}
+
+// --- Main App Component (UPDATED) ---
+function App() {
+    const [currentPage, setCurrentPage] = useState('learn');
+    const [config, setConfig] = useState(null);
+    const [loading, setLoading] = useState(true);
+    const [videoState, setVideoState] = useState({ src: null, subtitles: [], sidebarWords: [], progress: 0, duration: 0 });
+
+    const initApp = useCallback(async () => {
+        setLoading(true);
+        // TTS Warm-up: Actively initialize the speech synthesis engine to prevent first-use delay.
+        speechManager.warmUp();
+        await cacheManager.initialize();
+        const configData = await window.electronAPI.loadConfig();
+        setConfig(configData);
+        setLoading(false);
+    }, []);
+
+    useEffect(() => { initApp(); }, [initApp]);
+
+    const handleUpdateConfig = async (newPartialConfig) => {
+        if (!config) return;
+        const newFullConfig = { ...config, ...newPartialConfig };
+        const result = await window.electronAPI.saveConfig(newFullConfig);
+        if (result.success) {
+            setConfig(result.config);
+        } else {
+            console.error("Failed to save config:", result.error);
+        }
+    };
+    
+    useEffect(() => { document.body.className = config?.ui_mode === 'light' ? 'light-mode' : ''; }, [config?.ui_mode]);
+    const handleNavClick = (page) => { speechManager.cancel(); setCurrentPage(page); };
+    const handleThemeToggle = () => { if (config) handleUpdateConfig({ ui_mode: config.ui_mode === 'dark' ? 'light' : 'dark' }); };
+
+    const renderPage = () => {
+        if (loading) return <div className="page-container"><div className="loading-message">正在初始化...</div></div>;
+        if (!config) return <div className="page-container"><div className="loading-message">正在加载配置...</div></div>;
+        
+        const pageProps = { config, onUpdateConfig: handleUpdateConfig };
+        switch (currentPage) {
+            case 'learn': return <LearnPage {...pageProps} />;
+            case 'dictionary': return <DictionaryPage {...pageProps} />;
+            case 'video': return <VideoPage {...pageProps} videoState={videoState} onVideoStateUpdate={(newState) => setVideoState(prev => ({ ...prev, ...newState }))} />;
+            case 'settings': return <SettingsPage {...pageProps} />;
+            default: return <div className="page-container"><h2>功能开发中</h2><p>此功能正在开发中...</p></div>;
+        }
+    };
+
+    return (
+        <>
+            <nav className="side-nav">
+                {['learn', 'dictionary', 'video', 'settings'].map(page => (
+                    <button key={page} onClick={() => handleNavClick(page)} className={`nav-button ${currentPage === page ? 'active' : ''}`}>
+                        {{learn: '学习', dictionary: '词典', video: '视频', settings: '设置'}[page]}
+                    </button>
+                ))}
+                <div className="theme-toggle-wrapper">
+                    <button onClick={handleThemeToggle} className="theme-toggle-button">{config?.ui_mode === 'dark' ? '☀️' : '🌙'}</button>
+                </div>
+            </nav>
+            <main className="app-main-content">{renderPage()}</main>
+        </>
+    );
+}
+
+ReactDOM.render(<App />, document.getElementById('root'));
+    </script>
+</body>
+</html>
