@@ -1,0 +1,83 @@
+{
+  "name": "globspeech",
+  "version": "1.0.0",
+  "description": "GlobSpeech Learning Application",
+  "main": "main.js",
+  "scripts": {
+    "start": "electron .",
+    "build": "electron-builder",
+    "dev": "electron . --dev",
+    "postinstall": "electron-builder install-app-deps"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "build": {
+    "appId": "com.example.globspeech",
+    "productName": "GlobSpeech",
+    "directories": {
+      "output": "dist"
+    },
+    "files": [
+      "**/*",
+      "!node_modules/*/{CHANGELOG.md,README.md,README,readme.md,readme}",
+      "!node_modules/*/{test,__tests__,tests,powered-test,example,examples}",
+      "!node_modules/*.d.ts",
+      "!node_modules/.bin"
+    ],
+    "asarUnpack": [
+      "**/*.db",
+      "**/*.json",
+      "**/*.txt",
+      "**/*.csv",
+      "**/*.js"
+    ],
+    "mac": {
+      "identity": null,
+      "category": "public.app-category.education",
+      "icon": "icon.icns",
+      "target": [
+        { "target": "dmg", "arch": ["universal"] },
+        { "target": "zip", "arch": ["universal"] }
+      ],
+      "extraFiles": [
+        {
+          "from": ".",
+          "to": "Resources",
+          "filter": [
+            "compromise.js",
+            "Frequency_list.txt",
+            "self_dictionary.db",
+            "self_now.db",
+            "sentence.csv",
+            "simplifiedchinese_foundation.csv",
+            "simplifiedchinese_sentence.csv",
+            "twenty_thousand.db",
+            "foundation.json",
+            "config.json",
+            "config_backup.json"
+          ]
+        }
+      ]
+    },
+    "win": {
+      "target": "nsis",
+      "icon": "icon.ico"
+    },
+    "linux": {
+      "target": "AppImage",
+      "icon": "icon.png"
+    }
+  },
+  "packageManager": "yarn@1.22.22+sha512.a6b2f7906b721bba3d67d4aff083df04dad64c399707841b7acf00f6b133b7ac24255f2652fa22ae3534329dc6180534e98d17432037ff6fd140556e2bb3137e",
+  "dependencies": {
+    "adm-zip": "^0.5.14",
+    "better-sqlite3": "^12.2.0",
+    "say": "^0.16.0"
+  },
+  "devDependencies": {
+    "electron": "^37.2.4",
+    "electron-builder": "^26.0.12",
+    "electron-rebuild": "^3.2.9"
+  }
+}
