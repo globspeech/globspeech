@@ -1,83 +1,83 @@
-# GlobSpeech
+ # GlobSpeech
 
-一个类 Anki 的开源背单词工具。支持本地与网络词库、视频字幕词义联动、词元化（词形还原）、自定义快捷键与学习进度管理。基于 Electron 开发，MIT 协议开源。
+[Screenshot1](https://raw.githubusercontent.com/globspeech/globspeech/refs/heads/main/Screenshot1.png)
 
-- 主页截图  
-  [Screenshot1](https://raw.githubusercontent.com/globspeech/globspeech/refs/heads/main/Screenshot1.png)
+GlobSpeech 是一款类似于 Anki 的开源单词记忆软件
 
-## 主要特性
+本项目采用 [MIT 协议](LICENSE) 开源。
 
-- 自带词库，亦可本地创建自定义词库
-- 支持添加网络词库（通过 Raw 原始数据链接）
-- 视频 + 字幕学习：根据当前字幕实时显示词义，难词优先
-  - 截图示例  
-    [Screenshot5](https://raw.githubusercontent.com/globspeech/globspeech/refs/heads/main/Screenshot5.png)
-- 词元化（词形还原）：将文本中的单词还原为词根形态（如 apples → apple）
-  - 适合事先处理文章或字幕，导出为一行一个词
-  - 截图示例  
-    [Screenshot3](https://raw.githubusercontent.com/globspeech/globspeech/refs/heads/main/Screenshot3.png)  
-    [Screenshot4](https://raw.githubusercontent.com/globspeech/globspeech/refs/heads/main/Screenshot4.png)
-- 自定义快捷键、导入/导出、重置学习进度  
-  [Screenshot6](https://raw.githubusercontent.com/globspeech/globspeech/refs/heads/main/Screenshot6.png)
+## ✨ 主要功能
 
-## 网络词库格式（Raw 原始数据）
+*   **内置与自定义词库**：软件自带常用词库，同时支持用户根据自身需求创建专属词库。
+*   **网络词库支持**：通过提供一个 Raw 格式的 URL，轻松添加和分享网络词库。
+*   **视频字幕实时释义**：在观看视频时，选择并加载字幕文件，软件会在侧边栏实时显示当前字幕中单词的释义，并优先展示较难的单词。
+*   **文本词元化 (Lemmatization)**：强大的文本分析工具，可将一篇文章或字幕中的所有单词提取并还原为其基本形式（词元），方便用户在阅读前集中学习生词。
+*   **自定义快捷键**：根据个人使用习惯，自由设置各项操作的快捷键。
+*   **数据管理**：支持方便地导入、导出和重置学习进度。
 
-网络词库文件必须可以通过互联网以 Raw（原始数据）方式访问，例如 GitHub 文件页面点击 “Raw” 后复制得到的链接。
+## 🚀 功能展示
 
-文件格式要求：
-- 第一行：词库名称，使用英文尖括号包裹
-- 从第二行开始：每行仅包含一个单词
-- 单词仅允许使用标准的 26 个英文字母（A–Z, a–z）
+### 词库管理与学习
+用户可以方便地管理自己的词库，包括创建新词库、使用内置词库或添加网络词库。
 
-示例（注意尖括号保持原样，不要转义）：
+[Screenshot2](https://raw.githubusercontent.com/globspeech/globspeech/refs/heads/main/Screenshot2.png)
+
+### 视频辅助学习
+在观看视频时，加载本地字幕文件，GlobSpeech 会在右侧实时显示单词释义，并按难度排序，让您在娱乐中轻松学词。
+
+[Screenshot5](https://raw.githubusercontent.com/globspeech/globspeech/refs/heads/main/Screenshot5.png)
+
+### 文本词元化工具
+在阅读一篇英文文章或观看视频之前，可以先将其文本内容（如文章或字幕文件）输入到词元化工具中。该工具会自动提取所有单词并将其还原为基本形态（例如，"apples" 变为 "apple"），然后以每行一个单词的格式输出。这样，您可以预先学习和记忆核心词汇。
+
+[Screenshot3](https://raw.githubusercontent.com/globspeech/globspeech/refs/heads/main/Screenshot3.png)
+[Screenshot4](https://raw.githubusercontent.com/globspeech/globspeech/refs/heads/main/Screenshot4.png)
+
+### 个性化设置
+用户可以自定义快捷键，并轻松管理自己的学习数据。
+
+[Screenshot6](https://raw.githubusercontent.com/globspeech/globspeech/refs/heads/main/Screenshot6.png)
+
+## 🌐 如何创建和添加网络词库
+
+GlobSpeech 支持用户通过一个公开的 Raw URL 添加网络词库。为了确保软件能够正确解析，您的网络词库文件必须遵循以下格式：
+
+1.  **文件必须是可通过互联网访问的 Raw (原始数据) 链接。**
+2.  **第一行**：必须包含词库的名称，并用英文尖括号 `< >` 包裹。
+3.  **后续行**：从第二行开始，每行有且仅包含一个单词。
+4.  **单词规范**：所有单词仅允许使用标准的 26 个英文字母（A-Z, a-z），不允许包含数字、特殊字符或空格。
+
+**示例：**
+
+假设您创建了一个名为 `tech-words.txt` 的文件，内容如下：
+
 ```
 <tech words>
 Neural
 Genome
 Quantum
+Compiler
+Algorithm
 ```
 
-添加方式（示例流程）：
-1) 将上面的内容保存到一个文本文件并托管（如 GitHub Gist 或仓库）  
-2) 在对应页面点击 “Raw”，复制原始数据链接  
-3) 在 GlobSpeech 中选择“添加网络词库”，粘贴该 Raw 链接即可
+您可以将此文件上传到 GitHub Gist 或仓库中，并获取其 **Raw** 链接来添加到 GlobSpeech 中。
 
-格式校验清单：
-- 有且仅有一行标题，且形如 <your list name>
-- 每个单词独占一行
-- 不包含数字、连字符、下划线或其他符号
-- 文件必须能通过网络以纯文本 Raw 方式访问
+## 🛠️ 技术栈与编译
 
-## 使用指南
+本软件基于 **Electron** 框架开发。
 
-- 本地词库
-  - 新建词库、编辑单词，按需导入/导出或重置进度
-- 视频与字幕联动
-  - 选择视频文件与对应字幕文件
-  - 播放时右侧实时显示当前字幕中的词义，难词在上，便于优先记忆
-- 词元化（词形还原）
-  - 粘贴或导入一段英文文本/字幕
-  - 工具会自动分词并还原为词根（如 apples → apple）
-  - 导出结果为“一行一个词”，可直接用于构建词库或预习
+### 如何编译
 
-## 构建与运行
+若要从源代码编译本项目，请按照以下步骤操作：
 
-- 环境：Node.js + Yarn
-- 命令：
-```
-yarn install
-yarn build
-```
+1.  克隆本仓库到本地。
+2.  安装项目依赖：
+    ```bash
+    yarn install
+    ```
+3.  编译打包：
+    ```bash
+    yarn build
+    ```
 
-## 许可
-
-- 开源协议：MIT
-
-——  
-如需示例网络词库的最小模板，可直接复制以下内容托管为 Raw 文件后添加：
-```
-<my words>
-apple
-banana
-cherry
-```
+编译完成后，您可以在 `dist` 找到可执行文件。
